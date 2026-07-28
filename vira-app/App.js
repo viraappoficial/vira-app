@@ -1,8 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
-import { Home as HomeIcon, LayoutGrid, Plus } from 'lucide-react-native';
+import { Home as HomeIcon, LayoutGrid, Plus, Settings } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import ModalNovaTarefa from './components/ModalNovaTarefa';
+import ModalNovoEspaco from './components/ModalNovoEspaco';
 import ViraLogo from './components/ViraLogo';
 import { useViraData } from './lib/useViraData';
 import { supabase } from './lib/supabase';
@@ -14,6 +15,7 @@ import KanbanScreen from './screens/KanbanScreen';
 function MainApp({ session }) {
   const [tela, setTela] = useState('home');
   const [modalVisible, setModalVisible] = useState(false);
+  const [modalEspacoVisible, setModalEspacoVisible] = useState(false);
   const userName = session.user.email.split('@')[0];
   const data = useViraData(session.user.id);
 
@@ -37,9 +39,14 @@ function MainApp({ session }) {
           <ViraLogo size={18} />
           <Text style={styles.brand}>vira</Text>
         </View>
-        <Pressable onPress={() => supabase.auth.signOut()}>
-          <Text style={styles.signOut}>Sair</Text>
-        </Pressable>
+        <View style={styles.topBarRight}>
+          <Pressable onPress={() => setModalEspacoVisible(true)} hitSlop={8}>
+            <Settings size={16} color={COLORS.textSecondary} />
+          </Pressable>
+          <Pressable onPress={() => supabase.auth.signOut()}>
+            <Text style={styles.signOut}>Sair</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.screenArea}>
@@ -90,6 +97,15 @@ function MainApp({ session }) {
         onCreate={async (payload) => {
           const { error } = await data.createTarefa(payload);
           if (!error) setModalVisible(false);
+        }}
+      />
+
+      <ModalNovoEspaco
+        visible={modalEspacoVisible}
+        onClose={() => setModalEspacoVisible(false)}
+        onCreate={async (payload) => {
+          const { error } = await data.createEspaco(payload);
+          if (!error) setModalEspacoVisible(false);
         }}
       />
     </View>
@@ -164,6 +180,11 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 14,
     fontWeight: '600',
+  },
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   signOut: {
     color: COLORS.textSecondary,

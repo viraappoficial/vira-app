@@ -57,6 +57,16 @@ export function useViraData(userId) {
     return { data, error };
   }
 
+  async function createEspaco({ nome, cor }) {
+    const { data, error } = await supabase
+      .from('espacos')
+      .insert({ usuario_id: userId, nome, cor })
+      .select()
+      .single();
+    if (!error) setEspacos((prev) => ({ ...prev, [data.id]: data }));
+    return { data, error };
+  }
+
   async function setTaskStatus(taskId, status) {
     const concluido_em = status === 'concluido' ? new Date().toISOString() : null;
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status, concluido_em } : t)));
@@ -89,6 +99,7 @@ export function useViraData(userId) {
     refreshing,
     refresh,
     createTarefa,
+    createEspaco,
     setTaskStatus,
     virarDia,
   };
