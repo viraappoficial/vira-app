@@ -32,15 +32,18 @@ function rawColumnStyle(isOver, isWide) {
 function rawCardStyle(isDragging) {
   return {
     backgroundColor: COLORS.bg,
-    border: `1px solid ${COLORS.border}`,
+    border: `1px solid ${isDragging ? COLORS.accent : COLORS.border}`,
     borderRadius: '12px',
     padding: '10px',
     marginBottom: '6px',
-    cursor: 'grab',
+    cursor: isDragging ? 'grabbing' : 'grab',
     touchAction: 'none',
-    opacity: isDragging ? 0.3 : 1,
+    opacity: isDragging ? 0.5 : 1,
     boxSizing: 'border-box',
     userSelect: 'none',
+    transform: isDragging ? 'rotate(-2deg) scale(1.03)' : 'rotate(0deg) scale(1)',
+    boxShadow: isDragging ? '0 8px 20px rgba(0,0,0,0.45)' : 'none',
+    transition: 'transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
   };
 }
 
@@ -89,6 +92,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
   const [selectedTask, setSelectedTask] = useState(null);
   const [dragOver, setDragOver] = useState(null);
   const [touchDrag, setTouchDrag] = useState(null);
+  const [draggingId, setDraggingId] = useState(null);
   const dragIdRef = useRef(null);
   const touchDragRef = useRef(null);
   const { width } = useWindowDimensions();
@@ -117,6 +121,13 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
     dragIdRef.current = taskId;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', taskId);
+    setDraggingId(taskId);
+  }
+
+  function handleDragEnd() {
+    setDraggingId(null);
+    setDragOver(null);
+    dragIdRef.current = null;
   }
 
   function handleDrop(e, status) {
@@ -198,7 +209,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
               ) : (
                 lista.map((t) => {
                   const espaco = espacos[t.espaco_id];
-                  const isBeingDragged = touchDrag && touchDrag.id === t.id;
+                  const isBeingDragged = (touchDrag && touchDrag.id === t.id) || draggingId === t.id;
 
                   if (IS_WEB) {
                     return (
@@ -207,6 +218,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
                         key={t.id}
                         draggable
                         onDragStart={(e) => handleDragStart(e, t.id)}
+                        onDragEnd={handleDragEnd}
                         onTouchStart={(e) => handleTouchStart(e, t)}
                         style={rawCardStyle(isBeingDragged)}
                       >
@@ -378,7 +390,8 @@ const styles = StyleSheet.create({
     padding: 10,
     zIndex: 2000,
     pointerEvents: 'none',
-    transform: [{ rotate: '-2deg' }],
+    transform: [{ rotate: '-2deg' }, { scale: 1.03 }],
+    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
   },
   pickerOverlay: {
     position: 'absolute',
