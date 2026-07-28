@@ -31,6 +31,8 @@ function rawColumnStyle(isOver, isWide) {
 
 function rawCardStyle(isDragging) {
   return {
+    display: 'flex',
+    flexDirection: 'column',
     backgroundColor: COLORS.bg,
     border: `1px solid ${isDragging ? COLORS.accent : COLORS.border}`,
     borderRadius: '12px',
@@ -53,6 +55,11 @@ function CardContent({ task, espaco }) {
       <Text style={styles.cardTitle} numberOfLines={1}>
         {task.titulo}
       </Text>
+      {task.descricao && (
+        <Text style={styles.cardDescricao} numberOfLines={1}>
+          {task.descricao}
+        </Text>
+      )}
       <View style={styles.cardMeta}>
         <EspacoCapsula espaco={espaco} small />
         {task.hora && <Text style={styles.cardHora}>{task.hora.slice(0, 5)}</Text>}
@@ -359,6 +366,11 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 14,
     fontWeight: '500',
+    marginBottom: 4,
+  },
+  cardDescricao: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
     marginBottom: 6,
   },
   cardMeta: {
