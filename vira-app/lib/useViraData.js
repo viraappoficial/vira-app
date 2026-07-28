@@ -38,13 +38,14 @@ export function useViraData(userId) {
     setRefreshing(false);
   }
 
-  async function createTarefa({ titulo, espaco_id, prioridade, hora }) {
+  async function createTarefa({ titulo, descricao, espaco_id, prioridade, hora }) {
     const hoje = new Date().toISOString().slice(0, 10);
     const { data, error } = await supabase
       .from('tarefas')
       .insert({
         usuario_id: userId,
         titulo,
+        descricao: descricao || null,
         espaco_id,
         prioridade,
         hora,

@@ -28,6 +28,7 @@ function formatHoraInput(text, previous) {
 
 export default function ModalNovaTarefa({ visible, espacosList, modelosList, onClose, onCreate }) {
   const [titulo, setTitulo] = useState('');
+  const [descricao, setDescricao] = useState('');
   const [espacoId, setEspacoId] = useState(null);
   const [prioridade, setPrioridade] = useState('media');
   const [hora, setHora] = useState('');
@@ -37,6 +38,7 @@ export default function ModalNovaTarefa({ visible, espacosList, modelosList, onC
   useEffect(() => {
     if (visible) {
       setTitulo('');
+      setDescricao('');
       setEspacoId(null);
       setPrioridade('media');
       setHora('');
@@ -56,6 +58,7 @@ export default function ModalNovaTarefa({ visible, espacosList, modelosList, onC
     const horaValida = /^([01]\d|2[0-3]):([0-5]\d)$/.test(hora) ? hora : null;
     await onCreate({
       titulo: titulo.trim(),
+      descricao: descricao.trim() || null,
       espaco_id: espacoId,
       prioridade,
       hora: horaValida,
@@ -85,6 +88,15 @@ export default function ModalNovaTarefa({ visible, espacosList, modelosList, onC
             placeholderTextColor={COLORS.textSecondary}
             style={styles.input}
             onSubmitEditing={handleCriar}
+          />
+
+          <TextInput
+            value={descricao}
+            onChangeText={setDescricao}
+            placeholder="Detalhes (opcional) — ex: levar boleto e RG"
+            placeholderTextColor={COLORS.textSecondary}
+            style={styles.descricaoInput}
+            multiline
           />
 
           {modelosList.length > 0 && (
@@ -246,6 +258,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1.5,
     borderBottomColor: COLORS.border,
     paddingBottom: 8,
+    marginBottom: 16,
+  },
+  descricaoInput: {
+    fontSize: 13,
+    color: COLORS.text,
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minHeight: 44,
+    textAlignVertical: 'top',
     marginBottom: 16,
   },
   modelosRow: {
