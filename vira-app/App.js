@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { Home as HomeIcon, LayoutGrid, Plus, Settings } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import ModalNovaTarefa from './components/ModalNovaTarefa';
 import ModalNovoEspaco from './components/ModalNovoEspaco';
 import ViraLogo from './components/ViraLogo';
@@ -22,10 +22,21 @@ function MainApp({ session }) {
   const userName = session.user.email.split('@')[0];
   const data = useViraData(session.user.id);
   const onboardingKey = `vira_onboarding_seen_${session.user.id}`;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     AsyncStorage.getItem(onboardingKey).then((v) => setOnboardingSeen(!!v));
   }, [onboardingKey]);
+
+  useEffect(() => {
+    fadeAnim.setValue(0);
+    slideAnim.setValue(10);
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start();
+  }, [tela, fadeAnim, slideAnim]);
 
   async function handleToggleHome(task) {
     const novoStatus = task.status === 'concluido' ? 'fazer' : 'concluido';
@@ -72,7 +83,9 @@ function MainApp({ session }) {
         </View>
       </View>
 
-      <View style={styles.screenArea}>
+      <Animated.View
+        style={[styles.screenArea, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
+      >
         {tela === 'home' ? (
           <HomeScreen
             userName={userName}
@@ -90,7 +103,7 @@ function MainApp({ session }) {
             onVirarDia={data.virarDia}
           />
         )}
-      </View>
+      </Animated.View>
 
       <View style={styles.bottomNav}>
         <Pressable style={styles.navItem} onPress={() => setTela('home')}>
