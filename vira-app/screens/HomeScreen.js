@@ -1,19 +1,9 @@
-import { AlertTriangle, CheckCircle2, Circle, Clock, Plus } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { AlertTriangle, CheckCircle2, Circle, Clock } from 'lucide-react-native';
+import { useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import EspacoCapsula from '../components/EspacoCapsula';
-import ModalNovaTarefa from '../components/ModalNovaTarefa';
 import ViraLogo from '../components/ViraLogo';
 import { COMPLETE_MESSAGES, EMPTY_MESSAGES, GREETINGS, SUBTITLES, pickRandom } from '../lib/copy';
-import { supabase } from '../lib/supabase';
 import { COLORS } from '../lib/theme';
 
 const STATUS_CONFIG = {
@@ -23,17 +13,9 @@ const STATUS_CONFIG = {
   atrasado: { label: 'Atrasado', color: COLORS.atrasado, Icon: AlertTriangle },
 };
 
-export default function HomeScreen({ userId, userName, onSignOut }) {
-  const [espacos, setEspacos] = useState({});
-  const [tasks, setTasks] = useState([]);
-  const [modelos, setModelos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+export default function HomeScreen({ userName, tasks, espacos, refreshing, onRefresh, onToggle }) {
   const [justCompletedId, setJustCompletedId] = useState(null);
   const [toast, setToast] = useState(null);
-  const [modalVisible, setModalVisible] = useState(false);
-
-  const espacosList = useMemo(() => Object.values(espacos), [espacos]);
 
   const greeting = useMemo(() => `${pickRandom(GREETINGS)}, ${userName}`, [userName]);
   const subtitle = useMemo(() => pickRandom(SUBTITLES), []);
@@ -43,103 +25,27 @@ export default function HomeScreen({ userId, userName, onSignOut }) {
     []
   );
 
-  const loadData = useCallback(async () => {
-    const [espacosRes, tarefasRes, modelosRes] = await Promise.all([
-      supabase.from('espacos').select('*'),
-      supabase.from('tarefas').select('*').neq('status', 'concluido').order('data_prevista', { ascending: true }),
-      supabase.from('modelos').select('*'),
-    ]);
-
-    if (!espacosRes.error) {
-      const map = {};
-      espacosRes.data.forEach((e) => {
-        map[e.id] = e;
-      });
-      setEspacos(map);
-    }
-    if (!tarefasRes.error) {
-      setTasks(tarefasRes.data);
-    }
-    if (!modelosRes.error) {
-      setModelos(modelosRes.data);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData().finally(() => setLoading(false));
-  }, [loadData]);
-
-  async function handleRefresh() {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  }
-
-  async function handleToggle(task) {
-    const novoStatus = task.status === 'concluido' ? 'fazer' : 'concluido';
-    setTasks((prev) =>
-      novoStatus === 'concluido' ? prev.filter((t) => t.id !== task.id) : prev
-    );
-    if (novoStatus === 'concluido') {
-      setJustCompletedId(task.id);
-      setToast(pickRandom(COMPLETE_MESSAGES));
-      setTimeout(() => setToast(null), 1600);
-    }
-    const { error } = await supabase
-      .from('tarefas')
-      .update({
-        status: novoStatus,
-        concluido_em: novoStatus === 'concluido' ? new Date().toISOString() : null,
-      })
-      .eq('id', task.id);
-    if (error) {
-      await loadData();
-    }
-  }
-
-  async function handleCreateTarefa({ titulo, espaco_id, prioridade, hora }) {
-    const hoje = new Date().toISOString().slice(0, 10);
-    const { data, error } = await supabase
-      .from('tarefas')
-      .insert({
-        usuario_id: userId,
-        titulo,
-        espaco_id,
-        prioridade,
-        hora,
-        status: 'fazer',
-        data_prevista: hoje,
-      })
-      .select()
-      .single();
-
-    if (!error) {
-      setTasks((prev) => [...prev, data]);
-      setModalVisible(false);
-      setToast('Tarefa criada');
-      setTimeout(() => setToast(null), 1400);
-    }
-  }
-
-  const pendentes = tasks.length;
-  const atrasadas = tasks.filter((t) => t.status === 'atrasado').length;
+  const pendentesList = useMemo(() => tasks.filter((t) => t.status !== 'concluido'), [tasks]);
+  const pendentes = pendentesList.length;
+  const atrasadas = pendentesList.filter((t) => t.status === 'atrasado').length;
 
   const ordenadas = useMemo(
     () =>
-      [...tasks].sort((a, b) => {
+      [...pendentesList].sort((a, b) => {
         if (!a.hora) return 1;
         if (!b.hora) return -1;
         return a.hora.localeCompare(b.hora);
       }),
-    [tasks]
+    [pendentesList]
   );
 
-  if (loading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={COLORS.accent} />
-      </View>
-    );
+  async function handleToggle(task) {
+    if (task.status !== 'concluido') {
+      setJustCompletedId(task.id);
+      setToast(pickRandom(COMPLETE_MESSAGES));
+      setTimeout(() => setToast(null), 1600);
+    }
+    await onToggle(task);
   }
 
   return (
@@ -148,15 +54,9 @@ export default function HomeScreen({ userId, userName, onSignOut }) {
         data={ordenadas}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.accent} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />}
         ListHeaderComponent={
           <View style={styles.header}>
-            <View style={styles.headerTop}>
-              <ViraLogo size={20} />
-              <Pressable onPress={onSignOut}>
-                <Text style={styles.signOut}>Sair</Text>
-              </Pressable>
-            </View>
             <Text style={styles.date}>{dataHoje}</Text>
             <Text style={styles.greeting}>{greeting}</Text>
             <Text style={styles.subtitle}>{pendentes > 0 ? subtitle : 'Nada por aqui hoje.'}</Text>
@@ -216,18 +116,6 @@ export default function HomeScreen({ userId, userName, onSignOut }) {
         }}
       />
 
-      <Pressable style={styles.fab} onPress={() => setModalVisible(true)}>
-        <Plus size={24} color={COLORS.bg} strokeWidth={2.5} />
-      </Pressable>
-
-      <ModalNovaTarefa
-        visible={modalVisible}
-        espacosList={espacosList}
-        modelosList={modelos}
-        onClose={() => setModalVisible(false)}
-        onCreate={handleCreateTarefa}
-      />
-
       {toast && (
         <View style={styles.toast}>
           <Text style={styles.toastText}>{toast}</Text>
@@ -242,12 +130,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.bg,
   },
-  loading: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   listContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
@@ -256,18 +138,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   header: {
-    paddingTop: 24,
+    paddingTop: 12,
     paddingBottom: 8,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  signOut: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
   },
   date: {
     color: COLORS.textSecondary,
@@ -340,22 +212,6 @@ const styles = StyleSheet.create({
   taskHora: {
     color: COLORS.textSecondary,
     fontSize: 11,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: COLORS.accent,
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
   },
   toast: {
     position: 'absolute',
