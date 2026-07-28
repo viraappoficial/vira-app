@@ -157,6 +157,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
   function handleDrop(e, status) {
     e.preventDefault();
     setDragOver(null);
+    setDraggingId(null);
     const id = dragIdRef.current;
     if (id) onSetStatus(id, status);
     dragIdRef.current = null;
