@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { Home as HomeIcon, LayoutGrid, Plus, Settings } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
@@ -11,25 +12,47 @@ import { COLORS } from './lib/theme';
 import AuthScreen from './screens/AuthScreen';
 import HomeScreen from './screens/HomeScreen';
 import KanbanScreen from './screens/KanbanScreen';
+import OnboardingScreen from './screens/OnboardingScreen';
 
 function MainApp({ session }) {
   const [tela, setTela] = useState('home');
   const [modalVisible, setModalVisible] = useState(false);
   const [modalEspacoVisible, setModalEspacoVisible] = useState(false);
+  const [onboardingSeen, setOnboardingSeen] = useState(undefined);
   const userName = session.user.email.split('@')[0];
   const data = useViraData(session.user.id);
+  const onboardingKey = `vira_onboarding_seen_${session.user.id}`;
+
+  useEffect(() => {
+    AsyncStorage.getItem(onboardingKey).then((v) => setOnboardingSeen(!!v));
+  }, [onboardingKey]);
 
   async function handleToggleHome(task) {
     const novoStatus = task.status === 'concluido' ? 'fazer' : 'concluido';
     await data.setTaskStatus(task.id, novoStatus);
   }
 
-  if (data.loading) {
+  async function handleOnboardingCreateTasks(tarefasTexto) {
+    for (const titulo of tarefasTexto) {
+      await data.createTarefa({ titulo, espaco_id: null, prioridade: 'media', hora: null });
+    }
+  }
+
+  async function handleOnboardingDone() {
+    await AsyncStorage.setItem(onboardingKey, '1');
+    setOnboardingSeen(true);
+  }
+
+  if (data.loading || onboardingSeen === undefined) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={COLORS.accent} />
       </View>
     );
+  }
+
+  if (!onboardingSeen) {
+    return <OnboardingScreen onCreateTasks={handleOnboardingCreateTasks} onDone={handleOnboardingDone} />;
   }
 
   return (
