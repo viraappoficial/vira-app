@@ -1,26 +1,53 @@
-import { Check, X } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Check, Upload, X } from 'lucide-react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { supabase } from '../lib/supabase';
 import { COLORS } from '../lib/theme';
 
 const CORES_SUGERIDAS = ['#D9A544', '#3FAE72', '#8E6FE8', '#E86F9C', '#5B8CFF', '#4FC98A'];
 
-export default function ModalNovoEspaco({ visible, onClose, onCreate }) {
+export default function ModalNovoEspaco({ visible, userId, onClose, onCreate }) {
   const [nome, setNome] = useState('');
   const [cor, setCor] = useState(CORES_SUGERIDAS[0]);
+  const [logoUrl, setLogoUrl] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (visible) {
       setNome('');
       setCor(CORES_SUGERIDAS[0]);
+      setLogoUrl(null);
     }
   }, [visible]);
+
+  async function handleUpload(file) {
+    if (!file) return;
+    setUploading(true);
+    const ext = file.name?.split('.').pop() || 'jpg';
+    const path = `${userId}/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('espacos-logos').upload(path, file, {
+      contentType: file.type,
+      upsert: true,
+    });
+    if (!error) {
+      const { data } = supabase.storage.from('espacos-logos').getPublicUrl(path);
+      setLogoUrl(data.publicUrl);
+    }
+    setUploading(false);
+  }
+
+  function handleWebFileChange(e) {
+    const file = e.target.files && e.target.files[0];
+    handleUpload(file);
+    e.target.value = '';
+  }
 
   async function handleCriar() {
     if (!nome.trim() || saving) return;
     setSaving(true);
-    await onCreate({ nome: nome.trim(), cor });
+    await onCreate({ nome: nome.trim(), cor, logo_url: logoUrl });
     setSaving(false);
   }
 
@@ -40,10 +67,37 @@ export default function ModalNovoEspaco({ visible, onClose, onCreate }) {
         </View>
 
         <View style={styles.previewWrap}>
-          <View style={[styles.preview, { backgroundColor: `${cor}22` }]}>
-            <Text style={[styles.previewText, { color: cor }]}>{inicial}</Text>
-          </View>
-          <Text style={styles.previewHint}>Logo por upload chega em breve — por enquanto usamos a inicial</Text>
+          <Pressable
+            onPress={() => Platform.OS === 'web' && fileInputRef.current?.click()}
+            style={[styles.preview, { backgroundColor: logoUrl ? 'transparent' : `${cor}22` }]}
+          >
+            {uploading ? (
+              <ActivityIndicator color={cor} />
+            ) : logoUrl ? (
+              <Image source={{ uri: logoUrl }} style={styles.previewImage} />
+            ) : (
+              <Text style={[styles.previewText, { color: cor }]}>{inicial}</Text>
+            )}
+          </Pressable>
+
+          {Platform.OS === 'web' && (
+            <>
+              {/* @ts-ignore — input HTML nativo, disponível via react-native-web */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleWebFileChange}
+                style={{ display: 'none' }}
+              />
+              <Pressable onPress={() => fileInputRef.current?.click()} style={styles.uploadButton}>
+                <Upload size={12} color={COLORS.accent} />
+                <Text style={styles.uploadButtonText}>{logoUrl ? 'Trocar logotipo' : 'Subir logotipo'}</Text>
+              </Pressable>
+            </>
+          )}
+
+          <Text style={styles.previewHint}>Opcional — sem logo, usamos a inicial do nome</Text>
         </View>
 
         <Text style={styles.label}>Nome do espaço</Text>
@@ -119,10 +173,25 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  previewImage: {
+    width: 72,
+    height: 72,
   },
   previewText: {
     fontSize: 26,
     fontWeight: '700',
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  uploadButtonText: {
+    color: COLORS.accent,
+    fontSize: 12,
+    fontWeight: '500',
   },
   previewHint: {
     color: COLORS.textSecondary,

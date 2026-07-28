@@ -125,6 +125,7 @@ function MainApp({ session }) {
 
       <ModalNovoEspaco
         visible={modalEspacoVisible}
+        userId={session.user.id}
         onClose={() => setModalEspacoVisible(false)}
         onCreate={async (payload) => {
           const { error } = await data.createEspaco(payload);
