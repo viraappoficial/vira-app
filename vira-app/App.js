@@ -1,10 +1,100 @@
 import { StatusBar } from 'expo-status-bar';
+import { Home as HomeIcon, LayoutGrid, Plus } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import AuthScreen from './screens/AuthScreen';
-import HomeScreen from './screens/HomeScreen';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import ModalNovaTarefa from './components/ModalNovaTarefa';
+import ViraLogo from './components/ViraLogo';
+import { useViraData } from './lib/useViraData';
 import { supabase } from './lib/supabase';
 import { COLORS } from './lib/theme';
+import AuthScreen from './screens/AuthScreen';
+import HomeScreen from './screens/HomeScreen';
+import KanbanScreen from './screens/KanbanScreen';
+
+function MainApp({ session }) {
+  const [tela, setTela] = useState('home');
+  const [modalVisible, setModalVisible] = useState(false);
+  const userName = session.user.email.split('@')[0];
+  const data = useViraData(session.user.id);
+
+  async function handleToggleHome(task) {
+    const novoStatus = task.status === 'concluido' ? 'fazer' : 'concluido';
+    await data.setTaskStatus(task.id, novoStatus);
+  }
+
+  if (data.loading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color={COLORS.accent} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.appContainer}>
+      <View style={styles.topBar}>
+        <View style={styles.topBarLeft}>
+          <ViraLogo size={18} />
+          <Text style={styles.brand}>vira</Text>
+        </View>
+        <Pressable onPress={() => supabase.auth.signOut()}>
+          <Text style={styles.signOut}>Sair</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.screenArea}>
+        {tela === 'home' ? (
+          <HomeScreen
+            userName={userName}
+            tasks={data.tasks}
+            espacos={data.espacos}
+            refreshing={data.refreshing}
+            onRefresh={data.refresh}
+            onToggle={handleToggleHome}
+          />
+        ) : (
+          <KanbanScreen
+            tasks={data.tasks}
+            espacos={data.espacos}
+            onSetStatus={data.setTaskStatus}
+            onVirarDia={data.virarDia}
+          />
+        )}
+      </View>
+
+      <View style={styles.bottomNav}>
+        <Pressable style={styles.navItem} onPress={() => setTela('home')}>
+          <HomeIcon size={20} color={tela === 'home' ? COLORS.accent : COLORS.textSecondary} />
+          <Text style={[styles.navLabel, { color: tela === 'home' ? COLORS.accent : COLORS.textSecondary }]}>
+            Hoje
+          </Text>
+        </Pressable>
+
+        <Pressable style={styles.fab} onPress={() => setModalVisible(true)}>
+          <Plus size={24} color={COLORS.bg} strokeWidth={2.5} />
+        </Pressable>
+
+        <Pressable style={styles.navItem} onPress={() => setTela('kanban')}>
+          <LayoutGrid size={20} color={tela === 'kanban' ? COLORS.accent : COLORS.textSecondary} />
+          <Text style={[styles.navLabel, { color: tela === 'kanban' ? COLORS.accent : COLORS.textSecondary }]}>
+            Board
+          </Text>
+        </Pressable>
+      </View>
+
+      <ModalNovaTarefa
+        visible={modalVisible}
+        espacosList={data.espacosList}
+        modelosList={data.modelos}
+        onClose={() => setModalVisible(false)}
+        onCreate={async (payload) => {
+          const { error } = await data.createTarefa(payload);
+          if (!error) setModalVisible(false);
+        }}
+      />
+    </View>
+  );
+}
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = carregando, null = deslogado
@@ -35,11 +125,9 @@ export default function App() {
     );
   }
 
-  const userName = session.user.email.split('@')[0];
-
   return (
     <>
-      <HomeScreen userId={session.user.id} userName={userName} onSignOut={() => supabase.auth.signOut()} />
+      <MainApp session={session} />
       <StatusBar style="light" />
     </>
   );
@@ -51,5 +139,69 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  appContainer: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  topBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  brand: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  signOut: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+  },
+  screenArea: {
+    flex: 1,
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+  },
+  navItem: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  navLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  fab: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: COLORS.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -24,
+    shadowColor: COLORS.accent,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
 });
