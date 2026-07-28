@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { Home as HomeIcon, LayoutGrid, Plus, Settings } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import ModalEspacos from './components/ModalEspacos';
 import ModalNovaTarefa from './components/ModalNovaTarefa';
 import ModalNovoEspaco from './components/ModalNovoEspaco';
@@ -26,6 +26,8 @@ function MainApp({ session }) {
   const onboardingKey = `vira_onboarding_seen_${session.user.id}`;
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
+  const { width } = useWindowDimensions();
+  const isWide = Platform.OS === 'web' && width >= 720 && tela === 'kanban';
 
   useEffect(() => {
     AsyncStorage.getItem(onboardingKey).then((v) => setOnboardingSeen(!!v));
@@ -70,7 +72,7 @@ function MainApp({ session }) {
 
   return (
     <View style={styles.appContainer}>
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, isWide && styles.topBarWide]}>
         <View style={styles.topBarLeft}>
           <ViraLogo size={18} />
           <Text style={styles.brand}>vira</Text>
@@ -247,6 +249,9 @@ const styles = StyleSheet.create({
     maxWidth: 480,
     width: '100%',
     alignSelf: 'center',
+  },
+  topBarWide: {
+    maxWidth: 1100,
   },
   topBarLeft: {
     flexDirection: 'row',
