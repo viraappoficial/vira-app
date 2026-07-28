@@ -117,11 +117,35 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
     setSelectedTask(null);
   }
 
-  function handleDragStart(e, taskId) {
+  function handleDragStart(e, taskId, titulo) {
     dragIdRef.current = taskId;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', taskId);
     setDraggingId(taskId);
+
+    const ghost = document.createElement('div');
+    ghost.textContent = titulo;
+    Object.assign(ghost.style, {
+      position: 'absolute',
+      top: '-1000px',
+      left: '-1000px',
+      padding: '10px 14px',
+      borderRadius: '12px',
+      background: COLORS.surface,
+      border: `1px solid ${COLORS.accent}`,
+      color: COLORS.text,
+      fontSize: '14px',
+      fontWeight: '500',
+      boxShadow: '0 8px 20px rgba(0,0,0,0.45)',
+      transform: 'rotate(-2deg) scale(1.03)',
+      maxWidth: '220px',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    });
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 20, 20);
+    setTimeout(() => ghost.remove(), 0);
   }
 
   function handleDragEnd() {
@@ -217,7 +241,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
                       <div
                         key={t.id}
                         draggable
-                        onDragStart={(e) => handleDragStart(e, t.id)}
+                        onDragStart={(e) => handleDragStart(e, t.id, t.titulo)}
                         onDragEnd={handleDragEnd}
                         onTouchStart={(e) => handleTouchStart(e, t)}
                         style={rawCardStyle(isBeingDragged)}
