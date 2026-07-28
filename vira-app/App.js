@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Home as HomeIcon, LayoutGrid, Plus, Settings } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import ConfettiBurst from './components/ConfettiBurst';
 import ModalEspacos from './components/ModalEspacos';
 import ModalNovaTarefa from './components/ModalNovaTarefa';
 import ModalNovoEspaco from './components/ModalNovoEspaco';
@@ -21,6 +22,7 @@ function MainApp({ session }) {
   const [espacosListVisible, setEspacosListVisible] = useState(false);
   const [espacoModal, setEspacoModal] = useState(undefined); // undefined = fechado, null = criar, espaco = editar
   const [onboardingSeen, setOnboardingSeen] = useState(undefined);
+  const [confettiTrigger, setConfettiTrigger] = useState(0);
   const userName = session.user.email.split('@')[0];
   const data = useViraData(session.user.id);
   const onboardingKey = `vira_onboarding_seen_${session.user.id}`;
@@ -42,9 +44,19 @@ function MainApp({ session }) {
     ]).start();
   }, [tela, fadeAnim, slideAnim]);
 
+  function celebrate() {
+    setConfettiTrigger((v) => v + 1);
+  }
+
   async function handleToggleHome(task) {
     const novoStatus = task.status === 'concluido' ? 'fazer' : 'concluido';
+    if (novoStatus === 'concluido') celebrate();
     await data.setTaskStatus(task.id, novoStatus);
+  }
+
+  async function handleSetStatus(taskId, novoStatus) {
+    if (novoStatus === 'concluido') celebrate();
+    await data.setTaskStatus(taskId, novoStatus);
   }
 
   async function handleOnboardingCreateTasks(tarefasTexto) {
@@ -109,12 +121,14 @@ function MainApp({ session }) {
           <KanbanScreen
             tasks={data.tasks}
             espacos={data.espacos}
-            onSetStatus={data.setTaskStatus}
+            onSetStatus={handleSetStatus}
             onVirarDia={data.virarDia}
             onEditTask={setTaskModal}
           />
         )}
       </Animated.View>
+
+      <ConfettiBurst burstKey={confettiTrigger} />
 
       <View style={styles.bottomNav}>
         <Pressable style={styles.navItem} onPress={() => setTela('home')}>
@@ -147,6 +161,8 @@ function MainApp({ session }) {
           if (!error) setTaskModal(undefined);
         }}
         onUpdate={async (id, payload) => {
+          const tinhaConcluido = taskModal && taskModal.status === 'concluido';
+          if (payload.status === 'concluido' && !tinhaConcluido) celebrate();
           const { error } = await data.updateTarefa(id, payload);
           if (!error) setTaskModal(undefined);
         }}

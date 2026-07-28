@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Circle, Clock } from 'lucide-react-native';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import EspacoCapsula from '../components/EspacoCapsula';
@@ -72,6 +72,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
   const [dragOver, setDragOver] = useState(null);
   const [touchDrag, setTouchDrag] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
+  const [recolhidas, setRecolhidas] = useState({ concluido: true });
   const dragIdRef = useRef(null);
   const touchDragRef = useRef(null);
   const { width } = useWindowDimensions();
@@ -120,6 +121,10 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
     document.body.appendChild(ghost);
     e.dataTransfer.setDragImage(ghost, 20, 20);
     setTimeout(() => ghost.remove(), 0);
+  }
+
+  function toggleRecolhida(status) {
+    setRecolhidas((prev) => ({ ...prev, [status]: !prev[status] }));
   }
 
   function handleDragEnd() {
@@ -194,16 +199,22 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
           const cfg = STATUS_CONFIG[s];
           const lista = grouped[s];
           const isOver = dragOver === s;
+          const isRecolhida = !!recolhidas[s];
 
           const columnInner = (
             <>
-              <View style={styles.columnHeader}>
+              <Pressable style={styles.columnHeader} onPress={() => toggleRecolhida(s)}>
                 <cfg.Icon size={14} color={cfg.color} />
                 <Text style={styles.columnLabel}>{cfg.label}</Text>
                 <Text style={styles.columnCount}>{lista.length}</Text>
-              </View>
+                {isRecolhida ? (
+                  <ChevronRight size={14} color={COLORS.textSecondary} style={styles.columnChevron} />
+                ) : (
+                  <ChevronDown size={14} color={COLORS.textSecondary} style={styles.columnChevron} />
+                )}
+              </Pressable>
 
-              {lista.length === 0 ? (
+              {isRecolhida ? null : lista.length === 0 ? (
                 <Text style={styles.emptyText}>{emptyMsgByColumn[s]}</Text>
               ) : (
                 lista.map((t) => {
@@ -346,6 +357,9 @@ const styles = StyleSheet.create({
   columnCount: {
     color: COLORS.textSecondary,
     fontSize: 12,
+  },
+  columnChevron: {
+    marginLeft: 'auto',
   },
   emptyText: {
     color: COLORS.textSecondary,
