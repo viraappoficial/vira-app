@@ -2,8 +2,6 @@ import { Flag, Home as HomeIcon, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -20,7 +18,15 @@ const PRIORIDADES = [
   { id: 'alta', cor: COLORS.atrasado },
 ];
 
-export default function ModalNovaTarefa({ visible, espacosList, onClose, onCreate }) {
+function formatHoraInput(text, previous) {
+  const digits = text.replace(/\D/g, '').slice(0, 4);
+  if (digits.length <= 2) return digits;
+  // evita reformatar quando o usuário está apagando o ":"
+  if (previous.length === 3 && text.length === 2) return digits;
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
+export default function ModalNovaTarefa({ visible, espacosList, modelosList, onClose, onCreate }) {
   const [titulo, setTitulo] = useState('');
   const [espacoId, setEspacoId] = useState(null);
   const [prioridade, setPrioridade] = useState('media');
@@ -38,6 +44,12 @@ export default function ModalNovaTarefa({ visible, espacosList, onClose, onCreat
     }
   }, [visible]);
 
+  function aplicarModelo(m) {
+    setTitulo(m.titulo_padrao);
+    setEspacoId(m.espaco_id);
+    setHora(m.hora_padrao ? m.hora_padrao.slice(0, 5) : '');
+  }
+
   async function handleCriar() {
     if (!titulo.trim() || saving) return;
     setSaving(true);
@@ -51,134 +63,170 @@ export default function ModalNovaTarefa({ visible, espacosList, onClose, onCreat
     setSaving(false);
   }
 
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.sheetWrap}
-        >
-          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-            <ScrollView keyboardShouldPersistTaps="handled">
-              <View style={styles.headerRow}>
-                <Text style={styles.headerTitle}>Nova tarefa</Text>
-                <Pressable onPress={onClose} hitSlop={8}>
-                  <X size={18} color={COLORS.textSecondary} />
+    <View style={styles.overlay}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <View style={styles.sheet}>
+        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <View style={styles.headerRow}>
+            <Text style={styles.headerTitle}>Nova tarefa</Text>
+            <Pressable onPress={onClose} hitSlop={8}>
+              <X size={18} color={COLORS.textSecondary} />
+            </Pressable>
+          </View>
+
+          <TextInput
+            ref={inputRef}
+            value={titulo}
+            onChangeText={setTitulo}
+            placeholder="O que você precisa lembrar?"
+            placeholderTextColor={COLORS.textSecondary}
+            style={styles.input}
+            onSubmitEditing={handleCriar}
+          />
+
+          {modelosList.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.modelosRow}>
+              {modelosList.map((m) => (
+                <Pressable key={m.id} onPress={() => aplicarModelo(m)} style={styles.modeloChip}>
+                  <Text style={styles.modeloChipText}>{m.titulo_padrao}</Text>
                 </Pressable>
-              </View>
-
-              <TextInput
-                ref={inputRef}
-                value={titulo}
-                onChangeText={setTitulo}
-                placeholder="O que você precisa lembrar?"
-                placeholderTextColor={COLORS.textSecondary}
-                style={styles.input}
-                onSubmitEditing={handleCriar}
-              />
-
-              {espacosList.length > 0 && (
-                <>
-                  <Text style={styles.label}>Espaço</Text>
-                  <View style={styles.espacoRow}>
-                    {espacosList.map((e) => {
-                      const active = espacoId === e.id;
-                      return (
-                        <Pressable
-                          key={e.id}
-                          onPress={() => setEspacoId(active ? null : e.id)}
-                          style={[
-                            styles.espacoChip,
-                            {
-                              backgroundColor: active ? `${e.cor}22` : 'transparent',
-                              borderColor: active ? e.cor : COLORS.border,
-                            },
-                          ]}
-                        >
-                          {e.icone === 'casa' ? (
-                            <HomeIcon size={11} color={active ? e.cor : COLORS.textSecondary} />
-                          ) : (
-                            <View style={[styles.espacoDot, { backgroundColor: e.cor }]}>
-                              <Text style={styles.espacoDotText}>{e.nome[0]?.toUpperCase()}</Text>
-                            </View>
-                          )}
-                          <Text style={{ color: active ? e.cor : COLORS.textSecondary, fontSize: 12, fontWeight: '500' }}>
-                            {e.nome}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </>
-              )}
-
-              <View style={styles.row}>
-                <View style={styles.rowItem}>
-                  <Text style={styles.label}>
-                    <Flag size={11} color={COLORS.textSecondary} /> Prioridade
-                  </Text>
-                  <View style={styles.prioridadeRow}>
-                    {PRIORIDADES.map((p) => (
-                      <Pressable
-                        key={p.id}
-                        onPress={() => setPrioridade(p.id)}
-                        style={[
-                          styles.prioridadeDot,
-                          { backgroundColor: p.cor, opacity: prioridade === p.id ? 1 : 0.3 },
-                        ]}
-                      />
-                    ))}
-                  </View>
-                </View>
-                <View style={styles.rowItem}>
-                  <Text style={styles.label}>Horário (opcional)</Text>
-                  <TextInput
-                    value={hora}
-                    onChangeText={setHora}
-                    placeholder="HH:MM"
-                    placeholderTextColor={COLORS.textSecondary}
-                    style={styles.horaInput}
-                    maxLength={5}
-                  />
-                </View>
-              </View>
-
-              <Pressable
-                onPress={handleCriar}
-                disabled={!titulo.trim() || saving}
-                style={[styles.button, (!titulo.trim() || saving) && styles.buttonDisabled]}
-              >
-                {saving ? (
-                  <ActivityIndicator color={COLORS.bg} />
-                ) : (
-                  <Text style={styles.buttonText}>Criar tarefa</Text>
-                )}
-              </Pressable>
+              ))}
             </ScrollView>
+          )}
+
+          {espacosList.length > 0 && (
+            <>
+              <Text style={styles.label}>Espaço</Text>
+              <View style={styles.espacoRow}>
+                {espacosList.map((e) => {
+                  const active = espacoId === e.id;
+                  return (
+                    <Pressable
+                      key={e.id}
+                      onPress={() => setEspacoId(active ? null : e.id)}
+                      style={[
+                        styles.espacoChip,
+                        {
+                          backgroundColor: active ? `${e.cor}22` : 'transparent',
+                          borderColor: active ? e.cor : COLORS.border,
+                        },
+                      ]}
+                    >
+                      {e.icone === 'casa' ? (
+                        <HomeIcon size={11} color={active ? e.cor : COLORS.textSecondary} />
+                      ) : (
+                        <View style={[styles.espacoDot, { backgroundColor: e.cor }]}>
+                          <Text style={styles.espacoDotText}>{e.nome[0]?.toUpperCase()}</Text>
+                        </View>
+                      )}
+                      <Text style={{ color: active ? e.cor : COLORS.textSecondary, fontSize: 12, fontWeight: '500' }}>
+                        {e.nome}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
+
+          <View style={styles.row}>
+            <View style={styles.rowItem}>
+              <Text style={styles.label}>
+                <Flag size={11} color={COLORS.textSecondary} /> Prioridade
+              </Text>
+              <View style={styles.prioridadeRow}>
+                {PRIORIDADES.map((p) => (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => setPrioridade(p.id)}
+                    style={[
+                      styles.prioridadeDot,
+                      { backgroundColor: p.cor, opacity: prioridade === p.id ? 1 : 0.3 },
+                    ]}
+                  />
+                ))}
+              </View>
+            </View>
+            <View style={styles.rowItem}>
+              <Text style={styles.label}>Horário (opcional)</Text>
+              {Platform.OS === 'web' ? (
+                // @ts-ignore — input HTML nativo, disponível via react-native-web
+                <input
+                  type="time"
+                  value={hora}
+                  onChange={(e) => setHora(e.target.value)}
+                  style={webTimeInputStyle}
+                />
+              ) : (
+                <TextInput
+                  value={hora}
+                  onChangeText={(t) => setHora(formatHoraInput(t, hora))}
+                  placeholder="HH:MM"
+                  placeholderTextColor={COLORS.textSecondary}
+                  style={styles.horaInput}
+                  keyboardType="number-pad"
+                  maxLength={5}
+                />
+              )}
+            </View>
+          </View>
+
+          <Pressable
+            onPress={handleCriar}
+            disabled={!titulo.trim() || saving}
+            style={[styles.button, (!titulo.trim() || saving) && styles.buttonDisabled]}
+          >
+            {saving ? (
+              <ActivityIndicator color={COLORS.bg} />
+            ) : (
+              <Text style={styles.buttonText}>Criar tarefa</Text>
+            )}
           </Pressable>
-        </KeyboardAvoidingView>
-      </Pressable>
-    </Modal>
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
+const webTimeInputStyle = {
+  fontSize: 13,
+  color: COLORS.text,
+  backgroundColor: COLORS.bg,
+  border: `1px solid ${COLORS.border}`,
+  borderRadius: 10,
+  paddingLeft: 10,
+  paddingRight: 10,
+  paddingTop: 8,
+  paddingBottom: 8,
+  fontFamily: 'inherit',
+  colorScheme: 'dark',
+  width: '100%',
+  boxSizing: 'border-box',
+};
+
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
+  overlay: {
+    position: Platform.OS === 'web' ? 'fixed' : 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'flex-end',
-  },
-  sheetWrap: {
-    width: '100%',
+    alignItems: 'center',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+    zIndex: 1000,
   },
   sheet: {
     backgroundColor: COLORS.surface,
+    borderRadius: Platform.OS === 'web' ? 24 : 0,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
-    maxWidth: 480,
+    maxWidth: 420,
     width: '100%',
-    alignSelf: 'center',
     maxHeight: '85%',
   },
   headerRow: {
@@ -199,6 +247,21 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
     paddingBottom: 8,
     marginBottom: 16,
+  },
+  modelosRow: {
+    marginBottom: 16,
+  },
+  modeloChip: {
+    backgroundColor: COLORS.accentSoft,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+  },
+  modeloChipText: {
+    color: COLORS.accent,
+    fontSize: 12,
+    fontWeight: '500',
   },
   label: {
     fontSize: 11,

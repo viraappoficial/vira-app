@@ -26,6 +26,7 @@ const STATUS_CONFIG = {
 export default function HomeScreen({ userId, userName, onSignOut }) {
   const [espacos, setEspacos] = useState({});
   const [tasks, setTasks] = useState([]);
+  const [modelos, setModelos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [justCompletedId, setJustCompletedId] = useState(null);
@@ -43,9 +44,10 @@ export default function HomeScreen({ userId, userName, onSignOut }) {
   );
 
   const loadData = useCallback(async () => {
-    const [espacosRes, tarefasRes] = await Promise.all([
+    const [espacosRes, tarefasRes, modelosRes] = await Promise.all([
       supabase.from('espacos').select('*'),
       supabase.from('tarefas').select('*').neq('status', 'concluido').order('data_prevista', { ascending: true }),
+      supabase.from('modelos').select('*'),
     ]);
 
     if (!espacosRes.error) {
@@ -57,6 +59,9 @@ export default function HomeScreen({ userId, userName, onSignOut }) {
     }
     if (!tarefasRes.error) {
       setTasks(tarefasRes.data);
+    }
+    if (!modelosRes.error) {
+      setModelos(modelosRes.data);
     }
   }, []);
 
@@ -218,6 +223,7 @@ export default function HomeScreen({ userId, userName, onSignOut }) {
       <ModalNovaTarefa
         visible={modalVisible}
         espacosList={espacosList}
+        modelosList={modelos}
         onClose={() => setModalVisible(false)}
         onCreate={handleCreateTarefa}
       />
