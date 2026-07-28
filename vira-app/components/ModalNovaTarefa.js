@@ -1,4 +1,4 @@
-import { Flag, Home as HomeIcon, X } from 'lucide-react-native';
+import { AlertTriangle, CheckCircle2, Circle, Clock, Flag, Home as HomeIcon, Trash2, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,6 +18,14 @@ const PRIORIDADES = [
   { id: 'alta', cor: COLORS.atrasado },
 ];
 
+const STATUS_ORDER = ['fazer', 'andamento', 'concluido', 'atrasado'];
+const STATUS_CONFIG = {
+  fazer: { label: 'A fazer', color: COLORS.fazer, Icon: Circle },
+  andamento: { label: 'Em andamento', color: COLORS.andamento, Icon: Clock },
+  concluido: { label: 'Concluído', color: COLORS.concluido, Icon: CheckCircle2 },
+  atrasado: { label: 'Atrasado', color: COLORS.atrasado, Icon: AlertTriangle },
+};
+
 function formatHoraInput(text, previous) {
   const digits = text.replace(/\D/g, '').slice(0, 4);
   if (digits.length <= 2) return digits;
@@ -26,25 +34,38 @@ function formatHoraInput(text, previous) {
   return `${digits.slice(0, 2)}:${digits.slice(2)}`;
 }
 
-export default function ModalNovaTarefa({ visible, espacosList, modelosList, onClose, onCreate }) {
+export default function ModalNovaTarefa({ visible, task, espacosList, modelosList, onClose, onCreate, onUpdate, onDelete }) {
+  const isEdit = !!task;
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [espacoId, setEspacoId] = useState(null);
   const [prioridade, setPrioridade] = useState('media');
   const [hora, setHora] = useState('');
+  const [status, setStatus] = useState('fazer');
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
-    if (visible) {
+    if (!visible) return;
+    setConfirmingDelete(false);
+    if (task) {
+      setTitulo(task.titulo || '');
+      setDescricao(task.descricao || '');
+      setEspacoId(task.espaco_id || null);
+      setPrioridade(task.prioridade || 'media');
+      setHora(task.hora ? task.hora.slice(0, 5) : '');
+      setStatus(task.status || 'fazer');
+    } else {
       setTitulo('');
       setDescricao('');
       setEspacoId(null);
       setPrioridade('media');
       setHora('');
+      setStatus('fazer');
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [visible]);
+  }, [visible, task]);
 
   function aplicarModelo(m) {
     setTitulo(m.titulo_padrao);
@@ -52,17 +73,32 @@ export default function ModalNovaTarefa({ visible, espacosList, modelosList, onC
     setHora(m.hora_padrao ? m.hora_padrao.slice(0, 5) : '');
   }
 
-  async function handleCriar() {
+  async function handleSalvar() {
     if (!titulo.trim() || saving) return;
     setSaving(true);
     const horaValida = /^([01]\d|2[0-3]):([0-5]\d)$/.test(hora) ? hora : null;
-    await onCreate({
+    const payload = {
       titulo: titulo.trim(),
       descricao: descricao.trim() || null,
       espaco_id: espacoId,
       prioridade,
       hora: horaValida,
-    });
+    };
+    if (isEdit) {
+      await onUpdate(task.id, { ...payload, status });
+    } else {
+      await onCreate(payload);
+    }
+    setSaving(false);
+  }
+
+  async function handleDelete() {
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+    setSaving(true);
+    await onDelete(task.id);
     setSaving(false);
   }
 
@@ -74,7 +110,7 @@ export default function ModalNovaTarefa({ visible, espacosList, modelosList, onC
       <View style={styles.sheet}>
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.headerRow}>
-            <Text style={styles.headerTitle}>Nova tarefa</Text>
+            <Text style={styles.headerTitle}>{isEdit ? 'Editar tarefa' : 'Nova tarefa'}</Text>
             <Pressable onPress={onClose} hitSlop={8}>
               <X size={18} color={COLORS.textSecondary} />
             </Pressable>
@@ -87,7 +123,7 @@ export default function ModalNovaTarefa({ visible, espacosList, modelosList, onC
             placeholder="O que você precisa lembrar?"
             placeholderTextColor={COLORS.textSecondary}
             style={styles.input}
-            onSubmitEditing={handleCriar}
+            onSubmitEditing={handleSalvar}
           />
 
           <TextInput
@@ -99,7 +135,7 @@ export default function ModalNovaTarefa({ visible, espacosList, modelosList, onC
             multiline
           />
 
-          {modelosList.length > 0 && (
+          {!isEdit && modelosList.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.modelosRow}>
               {modelosList.map((m) => (
                 <Pressable key={m.id} onPress={() => aplicarModelo(m)} style={styles.modeloChip}>
@@ -186,17 +222,53 @@ export default function ModalNovaTarefa({ visible, espacosList, modelosList, onC
             </View>
           </View>
 
+          {isEdit && (
+            <>
+              <Text style={styles.label}>Status</Text>
+              <View style={styles.statusRow}>
+                {STATUS_ORDER.map((s) => {
+                  const cfg = STATUS_CONFIG[s];
+                  const active = status === s;
+                  return (
+                    <Pressable
+                      key={s}
+                      onPress={() => setStatus(s)}
+                      style={[
+                        styles.statusChip,
+                        { backgroundColor: active ? `${cfg.color}22` : 'transparent', borderColor: active ? cfg.color : COLORS.border },
+                      ]}
+                    >
+                      <cfg.Icon size={12} color={active ? cfg.color : COLORS.textSecondary} />
+                      <Text style={{ color: active ? cfg.color : COLORS.textSecondary, fontSize: 11, fontWeight: '500' }}>
+                        {cfg.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
+
           <Pressable
-            onPress={handleCriar}
+            onPress={handleSalvar}
             disabled={!titulo.trim() || saving}
             style={[styles.button, (!titulo.trim() || saving) && styles.buttonDisabled]}
           >
             {saving ? (
               <ActivityIndicator color={COLORS.bg} />
             ) : (
-              <Text style={styles.buttonText}>Criar tarefa</Text>
+              <Text style={styles.buttonText}>{isEdit ? 'Salvar alterações' : 'Criar tarefa'}</Text>
             )}
           </Pressable>
+
+          {isEdit && (
+            <Pressable onPress={handleDelete} disabled={saving} style={styles.deleteButton}>
+              <Trash2 size={13} color={COLORS.atrasado} />
+              <Text style={styles.deleteButtonText}>
+                {confirmingDelete ? 'Toca de novo pra confirmar' : 'Excluir tarefa'}
+              </Text>
+            </Pressable>
+          )}
         </ScrollView>
       </View>
     </View>
@@ -348,6 +420,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
+  statusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 20,
+  },
+  statusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
   button: {
     backgroundColor: COLORS.accent,
     borderRadius: 12,
@@ -361,5 +448,18 @@ const styles = StyleSheet.create({
     color: COLORS.bg,
     fontSize: 15,
     fontWeight: '600',
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 14,
+    paddingVertical: 8,
+  },
+  deleteButtonText: {
+    color: COLORS.atrasado,
+    fontSize: 13,
+    fontWeight: '500',
   },
 });

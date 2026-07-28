@@ -16,7 +16,7 @@ import OnboardingScreen from './screens/OnboardingScreen';
 
 function MainApp({ session }) {
   const [tela, setTela] = useState('home');
-  const [modalVisible, setModalVisible] = useState(false);
+  const [taskModal, setTaskModal] = useState(undefined); // undefined = fechado, null = criar, task = editar
   const [modalEspacoVisible, setModalEspacoVisible] = useState(false);
   const [onboardingSeen, setOnboardingSeen] = useState(undefined);
   const userName = session.user.email.split('@')[0];
@@ -94,6 +94,7 @@ function MainApp({ session }) {
             refreshing={data.refreshing}
             onRefresh={data.refresh}
             onToggle={handleToggleHome}
+            onEditTask={setTaskModal}
           />
         ) : (
           <KanbanScreen
@@ -101,6 +102,7 @@ function MainApp({ session }) {
             espacos={data.espacos}
             onSetStatus={data.setTaskStatus}
             onVirarDia={data.virarDia}
+            onEditTask={setTaskModal}
           />
         )}
       </Animated.View>
@@ -113,7 +115,7 @@ function MainApp({ session }) {
           </Text>
         </Pressable>
 
-        <Pressable style={styles.fab} onPress={() => setModalVisible(true)}>
+        <Pressable style={styles.fab} onPress={() => setTaskModal(null)}>
           <Plus size={24} color={COLORS.bg} strokeWidth={2.5} />
         </Pressable>
 
@@ -126,13 +128,22 @@ function MainApp({ session }) {
       </View>
 
       <ModalNovaTarefa
-        visible={modalVisible}
+        visible={taskModal !== undefined}
+        task={taskModal}
         espacosList={data.espacosList}
         modelosList={data.modelos}
-        onClose={() => setModalVisible(false)}
+        onClose={() => setTaskModal(undefined)}
         onCreate={async (payload) => {
           const { error } = await data.createTarefa(payload);
-          if (!error) setModalVisible(false);
+          if (!error) setTaskModal(undefined);
+        }}
+        onUpdate={async (id, payload) => {
+          const { error } = await data.updateTarefa(id, payload);
+          if (!error) setTaskModal(undefined);
+        }}
+        onDelete={async (id) => {
+          const { error } = await data.deleteTarefa(id);
+          if (!error) setTaskModal(undefined);
         }}
       />
 

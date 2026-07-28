@@ -13,7 +13,7 @@ const STATUS_CONFIG = {
   atrasado: { label: 'Atrasado', color: COLORS.atrasado, Icon: AlertTriangle },
 };
 
-export default function HomeScreen({ userName, tasks, espacos, refreshing, onRefresh, onToggle }) {
+export default function HomeScreen({ userName, tasks, espacos, refreshing, onRefresh, onToggle, onEditTask }) {
   const [justCompletedId, setJustCompletedId] = useState(null);
   const [toast, setToast] = useState(null);
 
@@ -102,7 +102,7 @@ export default function HomeScreen({ userName, tasks, espacos, refreshing, onRef
               <Pressable onPress={() => handleToggle(item)} hitSlop={8}>
                 <cfg.Icon size={22} color={cfg.color} strokeWidth={2} />
               </Pressable>
-              <View style={styles.taskInfo}>
+              <Pressable style={styles.taskInfo} onPress={() => onEditTask(item)}>
                 <Text style={styles.taskTitle} numberOfLines={1}>
                   {item.titulo}
                 </Text>
@@ -110,7 +110,7 @@ export default function HomeScreen({ userName, tasks, espacos, refreshing, onRef
                   <EspacoCapsula espaco={espaco} small />
                   {item.hora && <Text style={styles.taskHora}>{item.hora.slice(0, 5)}</Text>}
                 </View>
-              </View>
+              </Pressable>
             </View>
           );
         }}

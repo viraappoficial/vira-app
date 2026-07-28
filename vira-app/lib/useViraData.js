@@ -68,6 +68,22 @@ export function useViraData(userId) {
     return { data, error };
   }
 
+  async function updateTarefa(taskId, { titulo, descricao, espaco_id, prioridade, hora, status }) {
+    const concluido_em = status === 'concluido' ? new Date().toISOString() : null;
+    const payload = { titulo, descricao: descricao || null, espaco_id, prioridade, hora, status, concluido_em };
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...payload } : t)));
+    const { error } = await supabase.from('tarefas').update(payload).eq('id', taskId);
+    if (error) await loadData();
+    return { error };
+  }
+
+  async function deleteTarefa(taskId) {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    const { error } = await supabase.from('tarefas').delete().eq('id', taskId);
+    if (error) await loadData();
+    return { error };
+  }
+
   async function setTaskStatus(taskId, status) {
     const concluido_em = status === 'concluido' ? new Date().toISOString() : null;
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status, concluido_em } : t)));
@@ -100,6 +116,8 @@ export function useViraData(userId) {
     refreshing,
     refresh,
     createTarefa,
+    updateTarefa,
+    deleteTarefa,
     createEspaco,
     setTaskStatus,
     virarDia,

@@ -47,33 +47,6 @@ function rawCardStyle(isDragging) {
   };
 }
 
-function StatusPicker({ task, onPick, onClose }) {
-  return (
-    <View style={styles.pickerOverlay}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      <View style={styles.pickerSheet}>
-        <Text style={styles.pickerTitle} numberOfLines={1}>
-          {task.titulo}
-        </Text>
-        {STATUS_ORDER.map((s) => {
-          const cfg = STATUS_CONFIG[s];
-          const active = task.status === s;
-          return (
-            <Pressable
-              key={s}
-              onPress={() => onPick(s)}
-              style={[styles.pickerOption, active && { borderColor: cfg.color, backgroundColor: `${cfg.color}18` }]}
-            >
-              <cfg.Icon size={16} color={cfg.color} />
-              <Text style={[styles.pickerOptionText, active && { color: cfg.color }]}>{cfg.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 function CardContent({ task, espaco }) {
   return (
     <>
@@ -88,8 +61,7 @@ function CardContent({ task, espaco }) {
   );
 }
 
-export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }) {
-  const [selectedTask, setSelectedTask] = useState(null);
+export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, onEditTask }) {
   const [dragOver, setDragOver] = useState(null);
   const [touchDrag, setTouchDrag] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
@@ -111,11 +83,6 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
     tasks.forEach((t) => acc[t.status]?.push(t));
     return acc;
   }, [tasks]);
-
-  function handlePick(status) {
-    onSetStatus(selectedTask.id, status);
-    setSelectedTask(null);
-  }
 
   function handleDragStart(e, taskId, titulo) {
     dragIdRef.current = taskId;
@@ -213,7 +180,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
           </Pressable>
         </View>
 
-        {!IS_WEB && <Text style={styles.hintText}>Toque num card pra mudar o status.</Text>}
+        {!IS_WEB && <Text style={styles.hintText}>Toque num card pra editar.</Text>}
 
         <View style={isWide ? styles.columnsRow : undefined}>
         {STATUS_ORDER.map((s) => {
@@ -238,13 +205,14 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
 
                   if (IS_WEB) {
                     return (
-                      // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+                      // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/click-events-have-key-events
                       <div
                         key={t.id}
                         draggable
                         onDragStart={(e) => handleDragStart(e, t.id, t.titulo)}
                         onDragEnd={handleDragEnd}
                         onTouchStart={(e) => handleTouchStart(e, t)}
+                        onClick={() => onEditTask(t)}
                         style={rawCardStyle(isBeingDragged)}
                       >
                         <CardContent task={t} espaco={espaco} />
@@ -253,7 +221,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
                   }
 
                   return (
-                    <Pressable key={t.id} style={styles.card} onPress={() => setSelectedTask(t)}>
+                    <Pressable key={t.id} style={styles.card} onPress={() => onEditTask(t)}>
                       <CardContent task={t} espaco={espaco} />
                     </Pressable>
                   );
@@ -297,9 +265,6 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
         </View>
       )}
 
-      {selectedTask && (
-        <StatusPicker task={selectedTask} onPick={handlePick} onClose={() => setSelectedTask(null)} />
-      )}
     </View>
   );
 }
@@ -417,45 +382,5 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
     transform: [{ rotate: '-2deg' }, { scale: 1.03 }],
     boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-  },
-  pickerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  pickerSheet: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-  },
-  pickerTitle: {
-    color: COLORS.text,
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  pickerOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 8,
-  },
-  pickerOptionText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontWeight: '500',
   },
 });
