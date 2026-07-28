@@ -106,6 +106,11 @@ export default function HomeScreen({ userName, tasks, espacos, refreshing, onRef
                 <Text style={styles.taskTitle} numberOfLines={1}>
                   {item.titulo}
                 </Text>
+                {item.descricao && (
+                  <Text style={styles.taskDescricao} numberOfLines={1}>
+                    {item.descricao}
+                  </Text>
+                )}
                 <View style={styles.taskMeta}>
                   <EspacoCapsula espaco={espaco} small />
                   {item.hora && <Text style={styles.taskHora}>{item.hora.slice(0, 5)}</Text>}
@@ -202,6 +207,11 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 14,
     fontWeight: '500',
+    marginBottom: 4,
+  },
+  taskDescricao: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
     marginBottom: 4,
   },
   taskMeta: {
