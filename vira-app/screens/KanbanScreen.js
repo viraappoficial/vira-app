@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle2, Circle, Clock } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import EspacoCapsula from '../components/EspacoCapsula';
 import ViraLogo from '../components/ViraLogo';
 import { EMPTY_MESSAGES, pickRandom } from '../lib/copy';
@@ -13,6 +13,36 @@ const STATUS_CONFIG = {
   concluido: { label: 'Concluído', color: COLORS.concluido, Icon: CheckCircle2 },
   atrasado: { label: 'Atrasado', color: COLORS.atrasado, Icon: AlertTriangle },
 };
+
+const IS_WEB = Platform.OS === 'web';
+
+function rawColumnStyle(isOver, isWide) {
+  return {
+    backgroundColor: isOver ? COLORS.accentSoft : COLORS.surface,
+    border: `1px solid ${isOver ? COLORS.accent : COLORS.border}`,
+    borderRadius: '16px',
+    padding: '12px',
+    marginTop: isWide ? 0 : '12px',
+    boxSizing: 'border-box',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease',
+    ...(isWide ? { flex: '1 1 0px', minWidth: 0 } : {}),
+  };
+}
+
+function rawCardStyle(isDragging) {
+  return {
+    backgroundColor: COLORS.bg,
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: '12px',
+    padding: '10px',
+    marginBottom: '6px',
+    cursor: 'grab',
+    touchAction: 'none',
+    opacity: isDragging ? 0.3 : 1,
+    boxSizing: 'border-box',
+    userSelect: 'none',
+  };
+}
 
 function StatusPicker({ task, onPick, onClose }) {
   return (
@@ -41,8 +71,28 @@ function StatusPicker({ task, onPick, onClose }) {
   );
 }
 
+function CardContent({ task, espaco }) {
+  return (
+    <>
+      <Text style={styles.cardTitle} numberOfLines={1}>
+        {task.titulo}
+      </Text>
+      <View style={styles.cardMeta}>
+        <EspacoCapsula espaco={espaco} small />
+        {task.hora && <Text style={styles.cardHora}>{task.hora.slice(0, 5)}</Text>}
+      </View>
+    </>
+  );
+}
+
 export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }) {
   const [selectedTask, setSelectedTask] = useState(null);
+  const [dragOver, setDragOver] = useState(null);
+  const [touchDrag, setTouchDrag] = useState(null);
+  const dragIdRef = useRef(null);
+  const touchDragRef = useRef(null);
+  const { width } = useWindowDimensions();
+  const isWide = IS_WEB && width >= 720;
 
   const emptyMsgByColumn = useMemo(() => {
     const map = {};
@@ -63,9 +113,63 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
     setSelectedTask(null);
   }
 
+  function handleDragStart(e, taskId) {
+    dragIdRef.current = taskId;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', taskId);
+  }
+
+  function handleDrop(e, status) {
+    e.preventDefault();
+    setDragOver(null);
+    const id = dragIdRef.current;
+    if (id) onSetStatus(id, status);
+    dragIdRef.current = null;
+  }
+
+  function handleTouchStart(e, task) {
+    const touch = e.touches[0];
+    const state = { id: task.id, x: touch.clientX, y: touch.clientY, task };
+    touchDragRef.current = state;
+    setTouchDrag(state);
+  }
+
+  useEffect(() => {
+    if (!IS_WEB) return undefined;
+
+    function handleTouchMove(e) {
+      if (!touchDragRef.current) return;
+      const touch = e.touches[0];
+      const updated = { ...touchDragRef.current, x: touch.clientX, y: touch.clientY };
+      touchDragRef.current = updated;
+      setTouchDrag(updated);
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const col = el && el.closest ? el.closest('[data-status]') : null;
+      setDragOver(col ? col.getAttribute('data-status') : null);
+    }
+
+    function handleTouchEnd() {
+      if (!touchDragRef.current) return;
+      const { id, x, y } = touchDragRef.current;
+      const el = document.elementFromPoint(x, y);
+      const col = el && el.closest ? el.closest('[data-status]') : null;
+      if (col) onSetStatus(id, col.getAttribute('data-status'));
+      touchDragRef.current = null;
+      setTouchDrag(null);
+      setDragOver(null);
+    }
+
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [onSetStatus]);
+
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, isWide && styles.scrollContentWide]}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Board</Text>
           <Pressable style={styles.virarDiaButton} onPress={onVirarDia}>
@@ -73,11 +177,16 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
           </Pressable>
         </View>
 
+        {!IS_WEB && <Text style={styles.hintText}>Toque num card pra mudar o status.</Text>}
+
+        <View style={isWide ? styles.columnsRow : undefined}>
         {STATUS_ORDER.map((s) => {
           const cfg = STATUS_CONFIG[s];
           const lista = grouped[s];
-          return (
-            <View key={s} style={styles.column}>
+          const isOver = dragOver === s;
+
+          const columnInner = (
+            <>
               <View style={styles.columnHeader}>
                 <cfg.Icon size={14} color={cfg.color} />
                 <Text style={styles.columnLabel}>{cfg.label}</Text>
@@ -89,23 +198,67 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia }
               ) : (
                 lista.map((t) => {
                   const espaco = espacos[t.espaco_id];
+                  const isBeingDragged = touchDrag && touchDrag.id === t.id;
+
+                  if (IS_WEB) {
+                    return (
+                      // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+                      <div
+                        key={t.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, t.id)}
+                        onTouchStart={(e) => handleTouchStart(e, t)}
+                        style={rawCardStyle(isBeingDragged)}
+                      >
+                        <CardContent task={t} espaco={espaco} />
+                      </div>
+                    );
+                  }
+
                   return (
                     <Pressable key={t.id} style={styles.card} onPress={() => setSelectedTask(t)}>
-                      <Text style={styles.cardTitle} numberOfLines={1}>
-                        {t.titulo}
-                      </Text>
-                      <View style={styles.cardMeta}>
-                        <EspacoCapsula espaco={espaco} small />
-                        {t.hora && <Text style={styles.cardHora}>{t.hora.slice(0, 5)}</Text>}
-                      </View>
+                      <CardContent task={t} espaco={espaco} />
                     </Pressable>
                   );
                 })
               )}
+            </>
+          );
+
+          if (IS_WEB) {
+            return (
+              <div
+                key={s}
+                data-status={s}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(s);
+                }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={(e) => handleDrop(e, s)}
+                style={rawColumnStyle(isOver, isWide)}
+              >
+                {columnInner}
+              </div>
+            );
+          }
+
+          return (
+            <View key={s} style={styles.column}>
+              {columnInner}
             </View>
           );
         })}
+        </View>
       </ScrollView>
+
+      {touchDrag && (
+        <View style={[styles.ghostCard, { left: touchDrag.x - 100, top: touchDrag.y - 40 }]}>
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {touchDrag.task.titulo}
+          </Text>
+        </View>
+      )}
 
       {selectedTask && (
         <StatusPicker task={selectedTask} onPick={handlePick} onClose={() => setSelectedTask(null)} />
@@ -126,11 +279,24 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingBottom: 40,
   },
+  scrollContentWide: {
+    maxWidth: 1100,
+  },
+  columnsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  hintText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginBottom: 12,
   },
   title: {
     color: COLORS.text,
@@ -154,7 +320,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 16,
     padding: 12,
-    marginBottom: 12,
+    marginTop: 12,
   },
   columnHeader: {
     flexDirection: 'row',
@@ -201,6 +367,18 @@ const styles = StyleSheet.create({
   cardHora: {
     color: COLORS.textSecondary,
     fontSize: 11,
+  },
+  ghostCard: {
+    position: 'fixed',
+    width: 200,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    borderRadius: 12,
+    padding: 10,
+    zIndex: 2000,
+    pointerEvents: 'none',
+    transform: [{ rotate: '-2deg' }],
   },
   pickerOverlay: {
     position: 'absolute',
