@@ -39,7 +39,7 @@ export default function App() {
 
   return (
     <>
-      <HomeScreen userName={userName} onSignOut={() => supabase.auth.signOut()} />
+      <HomeScreen userId={session.user.id} userName={userName} onSignOut={() => supabase.auth.signOut()} />
       <StatusBar style="light" />
     </>
   );

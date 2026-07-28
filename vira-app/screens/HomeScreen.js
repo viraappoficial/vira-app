@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Circle, Clock } from 'lucide-react-native';
+import { AlertTriangle, CheckCircle2, Circle, Clock, Plus } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import EspacoCapsula from '../components/EspacoCapsula';
+import ModalNovaTarefa from '../components/ModalNovaTarefa';
 import ViraLogo from '../components/ViraLogo';
 import { COMPLETE_MESSAGES, EMPTY_MESSAGES, GREETINGS, SUBTITLES, pickRandom } from '../lib/copy';
 import { supabase } from '../lib/supabase';
@@ -22,13 +23,16 @@ const STATUS_CONFIG = {
   atrasado: { label: 'Atrasado', color: COLORS.atrasado, Icon: AlertTriangle },
 };
 
-export default function HomeScreen({ userName, onSignOut }) {
+export default function HomeScreen({ userId, userName, onSignOut }) {
   const [espacos, setEspacos] = useState({});
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [justCompletedId, setJustCompletedId] = useState(null);
   const [toast, setToast] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const espacosList = useMemo(() => Object.values(espacos), [espacos]);
 
   const greeting = useMemo(() => `${pickRandom(GREETINGS)}, ${userName}`, [userName]);
   const subtitle = useMemo(() => pickRandom(SUBTITLES), []);
@@ -85,6 +89,30 @@ export default function HomeScreen({ userName, onSignOut }) {
       .eq('id', task.id);
     if (error) {
       await loadData();
+    }
+  }
+
+  async function handleCreateTarefa({ titulo, espaco_id, prioridade, hora }) {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const { data, error } = await supabase
+      .from('tarefas')
+      .insert({
+        usuario_id: userId,
+        titulo,
+        espaco_id,
+        prioridade,
+        hora,
+        status: 'fazer',
+        data_prevista: hoje,
+      })
+      .select()
+      .single();
+
+    if (!error) {
+      setTasks((prev) => [...prev, data]);
+      setModalVisible(false);
+      setToast('Tarefa criada');
+      setTimeout(() => setToast(null), 1400);
     }
   }
 
@@ -181,6 +209,17 @@ export default function HomeScreen({ userName, onSignOut }) {
             </View>
           );
         }}
+      />
+
+      <Pressable style={styles.fab} onPress={() => setModalVisible(true)}>
+        <Plus size={24} color={COLORS.bg} strokeWidth={2.5} />
+      </Pressable>
+
+      <ModalNovaTarefa
+        visible={modalVisible}
+        espacosList={espacosList}
+        onClose={() => setModalVisible(false)}
+        onCreate={handleCreateTarefa}
       />
 
       {toast && (
@@ -295,6 +334,22 @@ const styles = StyleSheet.create({
   taskHora: {
     color: COLORS.textSecondary,
     fontSize: 11,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: COLORS.accent,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
   toast: {
     position: 'absolute',
