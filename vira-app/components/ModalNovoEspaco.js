@@ -1,4 +1,4 @@
-import { Check, Upload, X } from 'lucide-react-native';
+import { ArrowLeft, Check, Trash2, Upload, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { supabase } from '../lib/supabase';
@@ -6,21 +6,29 @@ import { COLORS } from '../lib/theme';
 
 const CORES_SUGERIDAS = ['#D9A544', '#3FAE72', '#8E6FE8', '#E86F9C', '#5B8CFF', '#4FC98A'];
 
-export default function ModalNovoEspaco({ visible, userId, onClose, onCreate }) {
+export default function ModalNovoEspaco({ visible, userId, espaco, onClose, onBack, onCreate, onUpdate, onDelete }) {
+  const isEdit = !!espaco;
   const [nome, setNome] = useState('');
   const [cor, setCor] = useState(CORES_SUGERIDAS[0]);
   const [logoUrl, setLogoUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    if (visible) {
+    if (!visible) return;
+    setConfirmingDelete(false);
+    if (espaco) {
+      setNome(espaco.nome || '');
+      setCor(espaco.cor || CORES_SUGERIDAS[0]);
+      setLogoUrl(espaco.logo_url || null);
+    } else {
       setNome('');
       setCor(CORES_SUGERIDAS[0]);
       setLogoUrl(null);
     }
-  }, [visible]);
+  }, [visible, espaco]);
 
   async function handleUpload(file) {
     if (!file) return;
@@ -44,10 +52,24 @@ export default function ModalNovoEspaco({ visible, userId, onClose, onCreate }) 
     e.target.value = '';
   }
 
-  async function handleCriar() {
+  async function handleSalvar() {
     if (!nome.trim() || saving) return;
     setSaving(true);
-    await onCreate({ nome: nome.trim(), cor, logo_url: logoUrl });
+    if (isEdit) {
+      await onUpdate(espaco.id, { nome: nome.trim(), cor, logo_url: logoUrl });
+    } else {
+      await onCreate({ nome: nome.trim(), cor, logo_url: logoUrl });
+    }
+    setSaving(false);
+  }
+
+  async function handleDelete() {
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+    setSaving(true);
+    await onDelete(espaco.id);
     setSaving(false);
   }
 
@@ -60,7 +82,14 @@ export default function ModalNovoEspaco({ visible, userId, onClose, onCreate }) 
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       <View style={styles.sheet}>
         <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Novo espaço</Text>
+          <View style={styles.headerLeft}>
+            {onBack && (
+              <Pressable onPress={onBack} hitSlop={8}>
+                <ArrowLeft size={18} color={COLORS.textSecondary} />
+              </Pressable>
+            )}
+            <Text style={styles.headerTitle}>{isEdit ? 'Editar espaço' : 'Novo espaço'}</Text>
+          </View>
           <Pressable onPress={onClose} hitSlop={8}>
             <X size={18} color={COLORS.textSecondary} />
           </Pressable>
@@ -119,12 +148,25 @@ export default function ModalNovoEspaco({ visible, userId, onClose, onCreate }) 
         </View>
 
         <Pressable
-          onPress={handleCriar}
+          onPress={handleSalvar}
           disabled={!nome.trim() || saving}
           style={[styles.button, (!nome.trim() || saving) && styles.buttonDisabled]}
         >
-          {saving ? <ActivityIndicator color={COLORS.bg} /> : <Text style={styles.buttonText}>Criar espaço</Text>}
+          {saving ? (
+            <ActivityIndicator color={COLORS.bg} />
+          ) : (
+            <Text style={styles.buttonText}>{isEdit ? 'Salvar alterações' : 'Criar espaço'}</Text>
+          )}
         </Pressable>
+
+        {isEdit && (
+          <Pressable onPress={handleDelete} disabled={saving} style={styles.deleteButton}>
+            <Trash2 size={13} color={COLORS.atrasado} />
+            <Text style={styles.deleteButtonText}>
+              {confirmingDelete ? 'Toca de novo pra confirmar' : 'Excluir espaço'}
+            </Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
@@ -156,6 +198,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 20,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   headerTitle: {
     color: COLORS.text,
@@ -241,5 +288,18 @@ const styles = StyleSheet.create({
     color: COLORS.bg,
     fontSize: 15,
     fontWeight: '600',
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 14,
+    paddingVertical: 8,
+  },
+  deleteButtonText: {
+    color: COLORS.atrasado,
+    fontSize: 13,
+    fontWeight: '500',
   },
 });

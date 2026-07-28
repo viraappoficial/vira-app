@@ -68,6 +68,30 @@ export function useViraData(userId) {
     return { data, error };
   }
 
+  async function updateEspaco(espacoId, { nome, cor, logo_url }) {
+    const payload = { nome, cor, logo_url: logo_url || null };
+    setEspacos((prev) => ({ ...prev, [espacoId]: { ...prev[espacoId], ...payload } }));
+    const { error } = await supabase.from('espacos').update(payload).eq('id', espacoId);
+    if (error) await loadData();
+    return { error };
+  }
+
+  async function deleteEspaco(espacoId) {
+    await supabase.from('tarefas').update({ espaco_id: null }).eq('espaco_id', espacoId);
+    const { error } = await supabase.from('espacos').delete().eq('id', espacoId);
+    if (!error) {
+      setEspacos((prev) => {
+        const next = { ...prev };
+        delete next[espacoId];
+        return next;
+      });
+      setTasks((prev) => prev.map((t) => (t.espaco_id === espacoId ? { ...t, espaco_id: null } : t)));
+    } else {
+      await loadData();
+    }
+    return { error };
+  }
+
   async function updateTarefa(taskId, { titulo, descricao, espaco_id, prioridade, hora, status }) {
     const concluido_em = status === 'concluido' ? new Date().toISOString() : null;
     const payload = { titulo, descricao: descricao || null, espaco_id, prioridade, hora, status, concluido_em };
@@ -119,6 +143,8 @@ export function useViraData(userId) {
     updateTarefa,
     deleteTarefa,
     createEspaco,
+    updateEspaco,
+    deleteEspaco,
     setTaskStatus,
     virarDia,
   };

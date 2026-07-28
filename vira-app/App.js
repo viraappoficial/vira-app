@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Home as HomeIcon, LayoutGrid, Plus, Settings } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import ModalEspacos from './components/ModalEspacos';
 import ModalNovaTarefa from './components/ModalNovaTarefa';
 import ModalNovoEspaco from './components/ModalNovoEspaco';
 import ViraLogo from './components/ViraLogo';
@@ -17,7 +18,8 @@ import OnboardingScreen from './screens/OnboardingScreen';
 function MainApp({ session }) {
   const [tela, setTela] = useState('home');
   const [taskModal, setTaskModal] = useState(undefined); // undefined = fechado, null = criar, task = editar
-  const [modalEspacoVisible, setModalEspacoVisible] = useState(false);
+  const [espacosListVisible, setEspacosListVisible] = useState(false);
+  const [espacoModal, setEspacoModal] = useState(undefined); // undefined = fechado, null = criar, espaco = editar
   const [onboardingSeen, setOnboardingSeen] = useState(undefined);
   const userName = session.user.email.split('@')[0];
   const data = useViraData(session.user.id);
@@ -74,7 +76,7 @@ function MainApp({ session }) {
           <Text style={styles.brand}>vira</Text>
         </View>
         <View style={styles.topBarRight}>
-          <Pressable onPress={() => setModalEspacoVisible(true)} hitSlop={8}>
+          <Pressable onPress={() => setEspacosListVisible(true)} hitSlop={8}>
             <Settings size={16} color={COLORS.textSecondary} />
           </Pressable>
           <Pressable onPress={() => supabase.auth.signOut()}>
@@ -147,13 +149,40 @@ function MainApp({ session }) {
         }}
       />
 
+      <ModalEspacos
+        visible={espacosListVisible}
+        espacosList={data.espacosList}
+        onClose={() => setEspacosListVisible(false)}
+        onSelect={(e) => {
+          setEspacosListVisible(false);
+          setEspacoModal(e);
+        }}
+        onNew={() => {
+          setEspacosListVisible(false);
+          setEspacoModal(null);
+        }}
+      />
+
       <ModalNovoEspaco
-        visible={modalEspacoVisible}
+        visible={espacoModal !== undefined}
+        espaco={espacoModal}
         userId={session.user.id}
-        onClose={() => setModalEspacoVisible(false)}
+        onClose={() => setEspacoModal(undefined)}
+        onBack={() => {
+          setEspacoModal(undefined);
+          setEspacosListVisible(true);
+        }}
         onCreate={async (payload) => {
           const { error } = await data.createEspaco(payload);
-          if (!error) setModalEspacoVisible(false);
+          if (!error) setEspacoModal(undefined);
+        }}
+        onUpdate={async (id, payload) => {
+          const { error } = await data.updateEspaco(id, payload);
+          if (!error) setEspacoModal(undefined);
+        }}
+        onDelete={async (id) => {
+          const { error } = await data.deleteEspaco(id);
+          if (!error) setEspacoModal(undefined);
         }}
       />
     </View>
