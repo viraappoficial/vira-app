@@ -57,10 +57,10 @@ export function useViraData(userId) {
     return { data, error };
   }
 
-  async function createEspaco({ nome, cor }) {
+  async function createEspaco({ nome, cor, logo_url }) {
     const { data, error } = await supabase
       .from('espacos')
-      .insert({ usuario_id: userId, nome, cor })
+      .insert({ usuario_id: userId, nome, cor, logo_url: logo_url || null })
       .select()
       .single();
     if (!error) setEspacos((prev) => ({ ...prev, [data.id]: data }));
