@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle2, Circle, Clock } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import EspacoCapsula from '../components/EspacoCapsula';
 import ViraLogo from '../components/ViraLogo';
 import { COMPLETE_MESSAGES, EMPTY_MESSAGES, GREETINGS, SUBTITLES, pickRandom } from '../lib/copy';
@@ -16,6 +16,8 @@ const STATUS_CONFIG = {
 export default function HomeScreen({ userName, tasks, espacos, refreshing, onRefresh, onToggle, onEditTask }) {
   const [justCompletedId, setJustCompletedId] = useState(null);
   const [toast, setToast] = useState(null);
+  const { width } = useWindowDimensions();
+  const isWide = Platform.OS === 'web' && width >= 720;
 
   const greeting = useMemo(() => `${pickRandom(GREETINGS)}, ${userName}`, [userName]);
   const subtitle = useMemo(() => pickRandom(SUBTITLES), []);
@@ -53,7 +55,7 @@ export default function HomeScreen({ userName, tasks, espacos, refreshing, onRef
       <FlatList
         data={ordenadas}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, isWide && styles.listContentWide]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />}
         ListHeaderComponent={
           <View style={styles.header}>
@@ -141,6 +143,9 @@ const styles = StyleSheet.create({
     maxWidth: 480,
     width: '100%',
     alignSelf: 'center',
+  },
+  listContentWide: {
+    maxWidth: 720,
   },
   header: {
     paddingTop: 12,

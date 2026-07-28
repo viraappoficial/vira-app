@@ -27,7 +27,7 @@ function MainApp({ session }) {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const { width } = useWindowDimensions();
-  const isWide = Platform.OS === 'web' && width >= 720 && tela === 'kanban';
+  const isWide = Platform.OS === 'web' && width >= 720;
 
   useEffect(() => {
     AsyncStorage.getItem(onboardingKey).then((v) => setOnboardingSeen(!!v));
@@ -72,7 +72,12 @@ function MainApp({ session }) {
 
   return (
     <View style={styles.appContainer}>
-      <View style={[styles.topBar, isWide && styles.topBarWide]}>
+      <View
+        style={[
+          styles.topBar,
+          isWide && (tela === 'kanban' ? styles.topBarWideKanban : styles.topBarWideHome),
+        ]}
+      >
         <View style={styles.topBarLeft}>
           <ViraLogo size={18} />
           <Text style={styles.brand}>vira</Text>
@@ -250,8 +255,11 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-  topBarWide: {
+  topBarWideKanban: {
     maxWidth: 1100,
+  },
+  topBarWideHome: {
+    maxWidth: 720,
   },
   topBarLeft: {
     flexDirection: 'row',
