@@ -96,6 +96,7 @@ export function useViraData(userId) {
   }
 
   async function updateTarefa(taskId, { titulo, descricao, espaco_id, prioridade, hora, status, data_prevista }) {
+    const tarefaAtual = tasks.find((t) => t.id === taskId);
     const concluido_em = status === 'concluido' ? new Date().toISOString() : null;
     const payload = {
       titulo,
@@ -107,6 +108,9 @@ export function useViraData(userId) {
       concluido_em,
       data_prevista,
     };
+    if (status === 'andamento' && tarefaAtual?.status !== 'andamento') {
+      payload.andamento_em = new Date().toISOString();
+    }
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...payload } : t)));
     const { error } = await supabase.from('tarefas').update(payload).eq('id', taskId);
     if (error) await loadData();
@@ -121,9 +125,14 @@ export function useViraData(userId) {
   }
 
   async function setTaskStatus(taskId, status) {
+    const tarefaAtual = tasks.find((t) => t.id === taskId);
     const concluido_em = status === 'concluido' ? new Date().toISOString() : null;
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status, concluido_em } : t)));
-    const { error } = await supabase.from('tarefas').update({ status, concluido_em }).eq('id', taskId);
+    const payload = { status, concluido_em };
+    if (status === 'andamento' && tarefaAtual?.status !== 'andamento') {
+      payload.andamento_em = new Date().toISOString();
+    }
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...payload } : t)));
+    const { error } = await supabase.from('tarefas').update(payload).eq('id', taskId);
     if (error) await loadData();
     return { error };
   }
