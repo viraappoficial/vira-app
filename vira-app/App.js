@@ -2,13 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { Home as HomeIcon, LayoutGrid, Plus, Settings } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Animated, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import ConfettiBurst from './components/ConfettiBurst';
 import ModalEspacos from './components/ModalEspacos';
 import ModalNovaTarefa from './components/ModalNovaTarefa';
 import ModalNovoEspaco from './components/ModalNovoEspaco';
-import ViraLogo from './components/ViraLogo';
+import ViraLogoSpinner from './components/ViraLogoSpinner';
 import { useViraData } from './lib/useViraData';
 import { supabase } from './lib/supabase';
 import { todayIso } from './lib/calendario';
@@ -100,7 +100,7 @@ function MainApp({ session }) {
   if (data.loading || onboardingSeen === undefined) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={COLORS.accent} />
+        <ViraLogoSpinner size={32} />
       </View>
     );
   }
@@ -118,7 +118,7 @@ function MainApp({ session }) {
         ]}
       >
         <View style={styles.topBarLeft}>
-          <ViraLogo size={isWide ? 30 : 22} />
+          <ViraLogoSpinner size={isWide ? 30 : 22} loop={false} />
           <Text style={[styles.brand, isWide && styles.brandWide]}>vira</Text>
         </View>
         <View style={styles.topBarRight}>
@@ -268,7 +268,7 @@ export default function App() {
     return (
       <GestureHandlerRootView style={styles.flex}>
         <View style={styles.loading}>
-          <ActivityIndicator color={COLORS.accent} />
+          <ViraLogoSpinner size={32} />
           <StatusBar style="light" />
         </View>
       </GestureHandlerRootView>
