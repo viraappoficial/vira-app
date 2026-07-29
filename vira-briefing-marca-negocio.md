@@ -238,6 +238,41 @@ Tecnicamente viável via **Row Level Security (RLS)** do Postgres/Supabase — r
 
 ---
 
+## 7.8 Método de pagamento e taxas (pesquisa registrada — decisão em aberto)
+
+Levantamento feito antes de implementar o limite de espaços (seção 7) e o gatilho de assinatura. Nada disso foi decidido ainda — só documentado pra decidir com números na mão.
+
+### Processadores avaliados (Stripe vs. Mercado Pago)
+
+| | Stripe | Mercado Pago |
+|---|---|---|
+| Pix | 1,19% por transação | 0,99% por transação |
+| Cartão | 3,99% + R$ 0,39 (nacional); +2% se internacional | 3,99% a 4,99%, variando conforme o prazo de recebimento (na hora = mais caro, 30 dias = mais barato) |
+| Assinatura recorrente | +0,4% em cima da taxa da transação | Suporta cobrança recorrente (semanal a anual) nativamente |
+| Boleto | Não é o forte | Sim, suportado |
+| Custo pra integrar/manter conta | **Zero** — sem mensalidade, sem taxa de setup, sem contrato. Só paga quando processa algo | Também sem mensalidade fixa — só cobra por transação |
+| Documentação/DX | API mais limpa, integra bem com Supabase Edge Functions + webhooks | Integração mais manual, mas mais "cara" pro usuário brasileiro reconhecer na hora de pagar |
+| Exige CNPJ? | Não — dá pra abrir conta com CPF (pessoa física/autônomo) | Não |
+
+**Conclusão preliminar:** taxas são parecidas entre os dois; a diferença real está na experiência de desenvolvimento (Stripe) vs. familiaridade do usuário final na hora de pagar (Mercado Pago). Nenhum dos dois cobra nada só pra existir/integrar — o custo só aparece quando alguém de fato assina.
+
+### Comissão de loja (Apple/Google) — relevante só se/quando publicar como app nativo
+
+Enquanto o Vira for **PWA/web** (estratégia já fechada na seção 7.3 — "SaaS web primeiro, loja depois"), **nenhuma dessas taxas se aplica** — só a taxa do processador de pagamento (tabela acima). Isso é mais um motivo pra manter esse caminho por mais tempo antes de publicar nas lojas:
+
+- **Apple App Store:** 30% no primeiro ano de assinatura de cada usuário, cai pra 15% a partir do segundo ano. Programa "Small Business" (empresa faturando <US$1M/ano) já entra com 15% desde o início. Desde o processo Epic vs. Apple, apps no storefront dos EUA podem usar link externo de pagamento — mas a Apple ainda cobra comissão em cima disso (12% a 27%), só não controla mais o método de cobrança em si.
+- **Google Play:** hoje 30% padrão / 15% em assinaturas; cai pra **20%/10%** a partir de junho de 2026 (EUA, Reino Unido, Europa), por acordo do caso Epic vs. Google. Tem "User Choice Billing" — usar processador próprio (Stripe/Mercado Pago) com taxa reduzida (~26% em vez de 30%), ainda bem mais caro que cobrar direto pelo navegador.
+
+**Implicação prática:** cada dia que o Vira ficar como PWA em vez de app de loja é dinheiro que fica com o produto em vez de ir pra Apple/Google. Quando publicar nas lojas (seção 7.2 já previa isso como uma fase posterior), vale reavaliar se compra sentido continuar direcionando assinatura pelo navegador (fora do app) em vez de usar IAP nativo.
+
+### Ainda em aberto
+
+1. Qual processador usar (Stripe ou Mercado Pago) — inclinação pra Stripe pela DX, mas não fechado
+2. Preço final do plano pago (sugestão em discussão: ~R$ 14,90/mês ou R$ 149/ano, plano único sem múltiplos tiers, combinando com a filosofia de simplicidade do Vira)
+3. Se o gatilho de assinatura, quando implementado, trava só o limite de espaços (mantendo IA/automação liberada geral enquanto ainda valida com poucos usuários) ou já entra travando tudo da Fase 2 de uma vez
+
+---
+
 ## 8. O que já está fechado (puxado da documentação técnica)
 
 - Nome: **Vira**
