@@ -348,7 +348,15 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
                 </Pressable>
               </View>
 
-              {isRecolhida || isEscondida ? null : lista.length === 0 ? (
+              {isRecolhida ? null : isEscondida ? (
+                <Pressable onPress={toggleConcluidasEscondidas}>
+                  <Text style={styles.hiddenText}>
+                    {lista.length === 0
+                      ? 'Nenhuma concluída ainda'
+                      : `${lista.length} concluída${lista.length !== 1 ? 's' : ''} ocultas — toque no olho pra ver`}
+                  </Text>
+                </Pressable>
+              ) : lista.length === 0 ? (
                 <Text style={styles.emptyText}>{emptyMsgByColumn[s]}</Text>
               ) : (
                 lista.map((t) => {
@@ -526,6 +534,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 12,
     opacity: 0.7,
+  },
+  hiddenText: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    textAlign: 'center',
+    paddingVertical: 12,
+    opacity: 0.6,
+    fontStyle: 'italic',
   },
   card: {
     backgroundColor: COLORS.bg,
