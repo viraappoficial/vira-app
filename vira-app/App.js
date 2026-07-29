@@ -11,6 +11,7 @@ import ModalNovoEspaco from './components/ModalNovoEspaco';
 import ViraLogo from './components/ViraLogo';
 import { useViraData } from './lib/useViraData';
 import { supabase } from './lib/supabase';
+import { VIRAR_DIA_MESSAGES, pickRandom } from './lib/copy';
 import { COLORS } from './lib/theme';
 import AuthScreen from './screens/AuthScreen';
 import HomeScreen from './screens/HomeScreen';
@@ -25,6 +26,7 @@ function MainApp({ session }) {
   const [onboardingSeen, setOnboardingSeen] = useState(undefined);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
   const [confettiOrigin, setConfettiOrigin] = useState(null);
+  const [virarDiaToast, setVirarDiaToast] = useState(null);
   const userName = session.user.email.split('@')[0];
   const data = useViraData(session.user.id);
   const onboardingKey = `vira_onboarding_seen_${session.user.id}`;
@@ -36,6 +38,13 @@ function MainApp({ session }) {
   useEffect(() => {
     AsyncStorage.getItem(onboardingKey).then((v) => setOnboardingSeen(!!v));
   }, [onboardingKey]);
+
+  useEffect(() => {
+    if (data.diaViradoCount === 0) return;
+    setVirarDiaToast(pickRandom(VIRAR_DIA_MESSAGES));
+    const timeout = setTimeout(() => setVirarDiaToast(null), 3000);
+    return () => clearTimeout(timeout);
+  }, [data.diaViradoCount]);
 
   useEffect(() => {
     fadeAnim.setValue(0);
@@ -125,13 +134,18 @@ function MainApp({ session }) {
             tasks={data.tasks}
             espacos={data.espacos}
             onSetStatus={handleSetStatus}
-            onVirarDia={data.virarDia}
             onEditTask={setTaskModal}
           />
         )}
       </Animated.View>
 
       <ConfettiBurst burstKey={confettiTrigger} origin={confettiOrigin} />
+
+      {virarDiaToast && (
+        <View style={styles.virarDiaToast}>
+          <Text style={styles.virarDiaToastText}>{virarDiaToast}</Text>
+        </View>
+      )}
 
       <View style={styles.bottomNav}>
         <Pressable style={styles.navItem} onPress={() => setTela('home')}>
@@ -347,5 +361,23 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
+  },
+  virarDiaToast: {
+    position: 'absolute',
+    bottom: 96,
+    alignSelf: 'center',
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    maxWidth: 320,
+  },
+  virarDiaToastText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });

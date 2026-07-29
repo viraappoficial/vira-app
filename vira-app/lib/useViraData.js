@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from './supabase';
 
 export function useViraData(userId) {
@@ -7,6 +7,8 @@ export function useViraData(userId) {
   const [modelos, setModelos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [diaViradoCount, setDiaViradoCount] = useState(0);
+  const ultimoDiaRef = useRef(new Date().toISOString().slice(0, 10));
 
   const espacosList = useMemo(() => Object.values(espacos), [espacos]);
 
@@ -133,21 +135,43 @@ export function useViraData(userId) {
     return { error };
   }
 
-  async function virarDia() {
+  const virarDia = useCallback(async () => {
     const hoje = new Date().toISOString().slice(0, 10);
-    const paraAtrasar = tasks.filter(
-      (t) => (t.status === 'fazer' || t.status === 'andamento') && t.data_prevista && t.data_prevista < hoje
-    );
-    if (paraAtrasar.length === 0) return 0;
-    setTasks((prev) =>
-      prev.map((t) => (paraAtrasar.some((p) => p.id === t.id) ? { ...t, status: 'atrasado' } : t))
-    );
-    await supabase
-      .from('tarefas')
-      .update({ status: 'atrasado' })
-      .in('id', paraAtrasar.map((t) => t.id));
-    return paraAtrasar.length;
-  }
+    let count = 0;
+    setTasks((prev) => {
+      const paraAtrasar = prev.filter(
+        (t) => (t.status === 'fazer' || t.status === 'andamento') && t.data_prevista && t.data_prevista < hoje
+      );
+      count = paraAtrasar.length;
+      if (count === 0) return prev;
+      const ids = paraAtrasar.map((t) => t.id);
+      supabase.from('tarefas').update({ status: 'atrasado' }).in('id', ids);
+      return prev.map((t) => (ids.includes(t.id) ? { ...t, status: 'atrasado' } : t));
+    });
+    return count;
+  }, []);
+
+  // Vira o dia sozinho: ao carregar e, se o app ficar aberto, checa a cada minuto
+  // se a data mudou (sem depender de fechar/abrir o app de novo).
+  useEffect(() => {
+    if (loading) return undefined;
+
+    virarDia().then((count) => {
+      if (count > 0) setDiaViradoCount((v) => v + count);
+    });
+
+    const interval = setInterval(() => {
+      const hoje = new Date().toISOString().slice(0, 10);
+      if (hoje !== ultimoDiaRef.current) {
+        ultimoDiaRef.current = hoje;
+        virarDia().then((count) => {
+          if (count > 0) setDiaViradoCount((v) => v + count);
+        });
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [loading, virarDia]);
 
   return {
     espacos,
@@ -167,5 +191,6 @@ export function useViraData(userId) {
     deleteModelo,
     setTaskStatus,
     virarDia,
+    diaViradoCount,
   };
 }
