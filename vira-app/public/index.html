@@ -27,6 +27,9 @@
         /* Sem isso, qualquer área não coberta pelo app (ex: atrás do indicador
            de home no iOS) aparece branca por padrão do navegador. */
         background-color: #14161c;
+        /* Evita o "elástico" de rolar além do conteúdo no iOS, que por uma
+           fração de segundo expõe o branco padrão do navegador por trás. */
+        overscroll-behavior: none;
       }
       /* No PWA instalado no iOS (modo standalone/fullscreen), 100% pode ficar maior
          que a área visível de verdade — 100dvh acompanha a altura visível real. */

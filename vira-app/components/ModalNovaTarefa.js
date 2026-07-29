@@ -474,9 +474,12 @@ const styles = StyleSheet.create({
   input: {
     fontSize: 16,
     color: COLORS.text,
-    borderBottomWidth: 1.5,
-    borderBottomColor: COLORS.border,
-    paddingBottom: 8,
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     marginBottom: 16,
   },
   secretarioButton: {
