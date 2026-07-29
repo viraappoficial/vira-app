@@ -1,4 +1,15 @@
-import { AlertTriangle, CheckCircle2, Circle, Clock, Flag, Home as HomeIcon, Plus, Trash2, X } from 'lucide-react-native';
+import {
+  AlertTriangle,
+  Calendar,
+  CheckCircle2,
+  Circle,
+  Clock,
+  Flag,
+  Home as HomeIcon,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,6 +21,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import DatePickerPopover from './DatePickerPopover';
+import { formatDiaCurto, todayIso } from '../lib/calendario';
 import { COLORS, PRIORIDADE_COLORS } from '../lib/theme';
 
 const PRIORIDADES = [
@@ -39,6 +52,7 @@ export default function ModalNovaTarefa({
   task,
   espacosList,
   modelosList,
+  defaultDate,
   onClose,
   onCreate,
   onUpdate,
@@ -53,6 +67,8 @@ export default function ModalNovaTarefa({
   const [prioridade, setPrioridade] = useState('media');
   const [hora, setHora] = useState('');
   const [status, setStatus] = useState('fazer');
+  const [dataPrevista, setDataPrevista] = useState(todayIso());
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [salvandoModelo, setSalvandoModelo] = useState(false);
@@ -61,6 +77,7 @@ export default function ModalNovaTarefa({
   useEffect(() => {
     if (!visible) return;
     setConfirmingDelete(false);
+    setDatePickerOpen(false);
     if (task) {
       setTitulo(task.titulo || '');
       setDescricao(task.descricao || '');
@@ -68,6 +85,7 @@ export default function ModalNovaTarefa({
       setPrioridade(task.prioridade || 'media');
       setHora(task.hora ? task.hora.slice(0, 5) : '');
       setStatus(task.status || 'fazer');
+      setDataPrevista(task.data_prevista || todayIso());
     } else {
       setTitulo('');
       setDescricao('');
@@ -75,9 +93,10 @@ export default function ModalNovaTarefa({
       setPrioridade('media');
       setHora('');
       setStatus('fazer');
+      setDataPrevista(defaultDate || todayIso());
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [visible, task]);
+  }, [visible, task, defaultDate]);
 
   function aplicarModelo(m) {
     setTitulo(m.titulo_padrao);
@@ -103,6 +122,7 @@ export default function ModalNovaTarefa({
       espaco_id: espacoId,
       prioridade,
       hora: horaValida,
+      data_prevista: dataPrevista,
     };
     if (isEdit) {
       await onUpdate(task.id, { ...payload, status });
@@ -174,6 +194,27 @@ export default function ModalNovaTarefa({
                 </Pressable>
               )}
             </ScrollView>
+          )}
+
+          <Text style={styles.label}>
+            <Calendar size={11} color={COLORS.textSecondary} /> Data
+          </Text>
+          <Pressable
+            onPress={() => setDatePickerOpen((v) => !v)}
+            style={[styles.datePill, dataPrevista === todayIso() && styles.datePillToday]}
+          >
+            <Text style={[styles.datePillText, dataPrevista === todayIso() && styles.datePillTextToday]}>
+              {dataPrevista === todayIso() ? 'Hoje' : formatDiaCurto(dataPrevista)}
+            </Text>
+            <Calendar size={13} color={dataPrevista === todayIso() ? COLORS.accent : COLORS.textSecondary} />
+          </Pressable>
+
+          {datePickerOpen && (
+            <DatePickerPopover
+              value={dataPrevista}
+              onSelect={setDataPrevista}
+              onClose={() => setDatePickerOpen(false)}
+            />
           )}
 
           {espacosList.length > 0 && (
@@ -415,6 +456,30 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: COLORS.textSecondary,
     marginBottom: 8,
+  },
+  datePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  datePillToday: {
+    backgroundColor: COLORS.accentSoft,
+    borderColor: COLORS.accentSoft,
+  },
+  datePillText: {
+    fontSize: 13,
+    color: COLORS.text,
+    fontWeight: '500',
+  },
+  datePillTextToday: {
+    color: COLORS.accent,
   },
   espacoRow: {
     flexDirection: 'row',

@@ -1,8 +1,10 @@
 import { AlertTriangle, CheckCircle2, Circle, Clock } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
 import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import CalendarHome from '../components/CalendarHome';
 import EspacoCapsula from '../components/EspacoCapsula';
 import ViraLogo from '../components/ViraLogo';
+import { formatDiaLongo, todayIso } from '../lib/calendario';
 import { ATRASADO_MESSAGES, COMPLETE_MESSAGES, EMPTY_MESSAGES, GREETINGS, SUBTITLES, pickRandom } from '../lib/copy';
 import { ordenarPorPrioridade } from '../lib/priorizacao';
 import { COLORS, PRIORIDADE_COLORS, PRIORIDADE_LABELS } from '../lib/theme';
@@ -14,12 +16,24 @@ const STATUS_CONFIG = {
   atrasado: { label: 'Atrasado', color: COLORS.atrasado, Icon: AlertTriangle },
 };
 
-export default function HomeScreen({ userName, tasks, espacos, refreshing, onRefresh, onToggle, onEditTask }) {
+export default function HomeScreen({
+  userName,
+  tasks,
+  espacos,
+  refreshing,
+  onRefresh,
+  onToggle,
+  onEditTask,
+  selectedDate,
+  onSelectDate,
+}) {
   const [justCompletedId, setJustCompletedId] = useState(null);
   const [toast, setToast] = useState(null);
   const atrasadoMsgCache = useRef({});
   const { width } = useWindowDimensions();
   const isWide = Platform.OS === 'web' && width >= 720;
+  const hoje = todayIso();
+  const isHoje = selectedDate === hoje;
 
   const greeting = useMemo(() => `${pickRandom(GREETINGS)}, ${userName}`, [userName]);
   const subtitle = useMemo(() => pickRandom(SUBTITLES), []);
@@ -29,11 +43,19 @@ export default function HomeScreen({ userName, tasks, espacos, refreshing, onRef
     []
   );
 
-  const pendentesList = useMemo(() => tasks.filter((t) => t.status !== 'concluido'), [tasks]);
-  const pendentes = pendentesList.length;
-  const atrasadas = pendentesList.filter((t) => t.status === 'atrasado').length;
+  const todayScope = useMemo(
+    () => tasks.filter((t) => t.status !== 'concluido' && (t.data_prevista === hoje || t.status === 'atrasado')),
+    [tasks, hoje]
+  );
+  const pendentes = todayScope.length;
+  const atrasadas = todayScope.filter((t) => t.status === 'atrasado').length;
 
-  const ordenadas = useMemo(() => ordenarPorPrioridade(pendentesList), [pendentesList]);
+  const agendaList = useMemo(() => {
+    if (isHoje) return todayScope;
+    return tasks.filter((t) => t.status !== 'concluido' && t.data_prevista === selectedDate);
+  }, [isHoje, todayScope, tasks, selectedDate]);
+
+  const ordenadas = useMemo(() => ordenarPorPrioridade(agendaList), [agendaList]);
 
   function atrasadoMsg(taskId) {
     if (!atrasadoMsgCache.current[taskId]) {
@@ -83,12 +105,23 @@ export default function HomeScreen({ userName, tasks, espacos, refreshing, onRef
                 )}
               </View>
             )}
+
+            <CalendarHome tasks={tasks} selected={selectedDate} onSelect={onSelectDate} />
+
+            <View style={styles.agendaHead}>
+              <Text style={styles.agendaDay}>{isHoje ? 'Hoje' : formatDiaLongo(selectedDate)}</Text>
+              <Text style={styles.agendaCount}>
+                {ordenadas.length === 0
+                  ? 'Nada por aqui'
+                  : `${ordenadas.length} tarefa${ordenadas.length !== 1 ? 's' : ''}`}
+              </Text>
+            </View>
           </View>
         }
         ListEmptyComponent={
           <View style={styles.empty}>
             <ViraLogo size={40} />
-            <Text style={styles.emptyText}>{emptyMsg}</Text>
+            <Text style={styles.emptyText}>{isHoje ? emptyMsg : 'Nada agendado pra esse dia.'}</Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -167,7 +200,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 12,
-    paddingBottom: 8,
+    paddingBottom: 4,
   },
   date: {
     color: COLORS.textSecondary,
@@ -190,7 +223,7 @@ const styles = StyleSheet.create({
   chips: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   chip: {
     borderRadius: 999,
@@ -200,6 +233,21 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  agendaHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  agendaDay: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  agendaCount: {
+    color: COLORS.textSecondary,
+    fontSize: 11.5,
   },
   empty: {
     alignItems: 'center',

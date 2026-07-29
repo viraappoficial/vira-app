@@ -40,7 +40,7 @@ export function useViraData(userId) {
     setRefreshing(false);
   }
 
-  async function createTarefa({ titulo, descricao, espaco_id, prioridade, hora }) {
+  async function createTarefa({ titulo, descricao, espaco_id, prioridade, hora, data_prevista }) {
     const hoje = new Date().toISOString().slice(0, 10);
     const { data, error } = await supabase
       .from('tarefas')
@@ -52,7 +52,7 @@ export function useViraData(userId) {
         prioridade,
         hora,
         status: 'fazer',
-        data_prevista: hoje,
+        data_prevista: data_prevista || hoje,
       })
       .select()
       .single();
@@ -94,9 +94,18 @@ export function useViraData(userId) {
     return { error };
   }
 
-  async function updateTarefa(taskId, { titulo, descricao, espaco_id, prioridade, hora, status }) {
+  async function updateTarefa(taskId, { titulo, descricao, espaco_id, prioridade, hora, status, data_prevista }) {
     const concluido_em = status === 'concluido' ? new Date().toISOString() : null;
-    const payload = { titulo, descricao: descricao || null, espaco_id, prioridade, hora, status, concluido_em };
+    const payload = {
+      titulo,
+      descricao: descricao || null,
+      espaco_id,
+      prioridade,
+      hora,
+      status,
+      concluido_em,
+      data_prevista,
+    };
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...payload } : t)));
     const { error } = await supabase.from('tarefas').update(payload).eq('id', taskId);
     if (error) await loadData();
