@@ -1,3 +1,4 @@
+import * as ImagePicker from 'expo-image-picker';
 import { ArrowLeft, Check, Trash2, Upload, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -30,13 +31,11 @@ export default function ModalNovoEspaco({ visible, userId, espaco, onClose, onBa
     }
   }, [visible, espaco]);
 
-  async function handleUpload(file) {
-    if (!file) return;
+  async function uploadToStorage(body, ext, contentType) {
     setUploading(true);
-    const ext = file.name?.split('.').pop() || 'jpg';
     const path = `${userId}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from('espacos-logos').upload(path, file, {
-      contentType: file.type,
+    const { error } = await supabase.storage.from('espacos-logos').upload(path, body, {
+      contentType,
       upsert: true,
     });
     if (!error) {
@@ -46,10 +45,32 @@ export default function ModalNovoEspaco({ visible, userId, espaco, onClose, onBa
     setUploading(false);
   }
 
-  function handleWebFileChange(e) {
+  async function handleWebFileChange(e) {
     const file = e.target.files && e.target.files[0];
-    handleUpload(file);
     e.target.value = '';
+    if (!file) return;
+    const ext = file.name?.split('.').pop() || 'jpg';
+    await uploadToStorage(file, ext, file.type);
+  }
+
+  async function handlePickNative() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    const contentType = asset.mimeType || 'image/jpeg';
+    const ext = contentType.split('/').pop() || 'jpg';
+    const response = await fetch(asset.uri);
+    const blob = await response.blob();
+    await uploadToStorage(blob, ext, contentType);
   }
 
   async function handleSalvar() {
@@ -97,7 +118,7 @@ export default function ModalNovoEspaco({ visible, userId, espaco, onClose, onBa
 
         <View style={styles.previewWrap}>
           <Pressable
-            onPress={() => Platform.OS === 'web' && fileInputRef.current?.click()}
+            onPress={() => (Platform.OS === 'web' ? fileInputRef.current?.click() : handlePickNative())}
             style={[styles.preview, { backgroundColor: logoUrl ? 'transparent' : `${cor}22` }]}
           >
             {uploading ? (
@@ -109,7 +130,7 @@ export default function ModalNovoEspaco({ visible, userId, espaco, onClose, onBa
             )}
           </Pressable>
 
-          {Platform.OS === 'web' && (
+          {Platform.OS === 'web' ? (
             <>
               {/* @ts-ignore — input HTML nativo, disponível via react-native-web */}
               <input
@@ -124,6 +145,11 @@ export default function ModalNovoEspaco({ visible, userId, espaco, onClose, onBa
                 <Text style={styles.uploadButtonText}>{logoUrl ? 'Trocar logotipo' : 'Subir logotipo'}</Text>
               </Pressable>
             </>
+          ) : (
+            <Pressable onPress={handlePickNative} style={styles.uploadButton}>
+              <Upload size={12} color={COLORS.accent} />
+              <Text style={styles.uploadButtonText}>{logoUrl ? 'Trocar logotipo' : 'Subir logotipo'}</Text>
+            </Pressable>
           )}
 
           <Text style={styles.previewHint}>Opcional — sem logo, usamos a inicial do nome</Text>

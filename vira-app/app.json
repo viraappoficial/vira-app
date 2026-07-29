@@ -20,6 +20,14 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Vira usa suas fotos pra você escolher o logotipo de um espaço."
+        }
+      ]
+    ]
   }
 }
