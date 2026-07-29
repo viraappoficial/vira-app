@@ -4,6 +4,7 @@ import webpush from 'npm:web-push@3.6.7';
 // Brasil não usa mais horário de verão (desde 2019) — fuso fixo -03:00.
 const OFFSET_BRASIL_MS = 3 * 60 * 60 * 1000;
 const JANELA_MIN = 15; // não notifica tarefas com horário passado há mais que isso (ex: cron ficou fora do ar)
+const HORAS_ANDAMENTO_PARADO = 3;
 
 function agoraBrasil() {
   return new Date(Date.now() - OFFSET_BRASIL_MS);
@@ -35,25 +36,38 @@ Deno.serve(async (req) => {
   const horaAtual = paraHHMM(agora);
   const horaMinima = paraHHMM(new Date(agora.getTime() - JANELA_MIN * 60 * 1000));
 
-  const { data: tarefas, error: erroTarefas } = await supabase
-    .from('tarefas')
-    .select('id, usuario_id, titulo, hora, status')
-    .eq('data_prevista', hoje)
-    .in('status', ['fazer', 'andamento'])
-    .is('notificado_em', null)
-    .not('hora', 'is', null)
-    .lte('hora', horaAtual)
-    .gte('hora', horaMinima);
+  const [{ data: tarefasNoHorario, error: erroHorario }, { data: tarefasPresas, error: erroPresas }] =
+    await Promise.all([
+      supabase
+        .from('tarefas')
+        .select('id, usuario_id, titulo, hora, status')
+        .eq('data_prevista', hoje)
+        .in('status', ['fazer', 'andamento'])
+        .is('notificado_em', null)
+        .not('hora', 'is', null)
+        .lte('hora', horaAtual)
+        .gte('hora', horaMinima),
+      supabase
+        .from('tarefas')
+        .select('id, usuario_id, titulo, vezes_adiada')
+        .eq('status', 'andamento')
+        .not('andamento_em', 'is', null)
+        .is('atraso_notificado_em', null)
+        .lte('andamento_em', new Date(Date.now() - HORAS_ANDAMENTO_PARADO * 60 * 60 * 1000).toISOString()),
+    ]);
 
-  if (erroTarefas) {
-    return new Response(JSON.stringify({ error: erroTarefas.message }), { status: 500 });
+  if (erroHorario || erroPresas) {
+    return new Response(JSON.stringify({ error: erroHorario?.message || erroPresas?.message }), { status: 500 });
   }
 
-  if (!tarefas || tarefas.length === 0) {
+  const usuarioIds = [
+    ...new Set([...(tarefasNoHorario || []).map((t) => t.usuario_id), ...(tarefasPresas || []).map((t) => t.usuario_id)]),
+  ];
+
+  if (usuarioIds.length === 0) {
     return new Response(JSON.stringify({ enviadas: 0 }), { status: 200 });
   }
 
-  const usuarioIds = [...new Set(tarefas.map((t) => t.usuario_id))];
   const { data: subscriptions } = await supabase
     .from('push_subscriptions')
     .select('*')
@@ -62,21 +76,13 @@ Deno.serve(async (req) => {
   let enviadas = 0;
   const endpointsExpirados: string[] = [];
 
-  for (const tarefa of tarefas) {
-    const inscricoesDoUsuario = (subscriptions || []).filter((s) => s.usuario_id === tarefa.usuario_id);
-
+  async function notificar(usuarioId: string, payloadNotificacao: Record<string, unknown>) {
+    const inscricoesDoUsuario = (subscriptions || []).filter((s) => s.usuario_id === usuarioId);
     for (const sub of inscricoesDoUsuario) {
       try {
         await webpush.sendNotification(
-          {
-            endpoint: sub.endpoint,
-            keys: { p256dh: sub.p256dh, auth: sub.auth },
-          },
-          JSON.stringify({
-            title: tarefa.titulo,
-            body: `Hora de: ${tarefa.titulo}`,
-            url: '/',
-          })
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify(payloadNotificacao)
         );
         enviadas++;
       } catch (err: any) {
@@ -85,19 +91,46 @@ Deno.serve(async (req) => {
         }
       }
     }
+  }
+
+  for (const tarefa of tarefasNoHorario || []) {
+    await notificar(tarefa.usuario_id, {
+      title: tarefa.titulo,
+      body: `Hora de: ${tarefa.titulo}`,
+      url: '/',
+    });
 
     const payload: Record<string, unknown> = { notificado_em: new Date().toISOString() };
-    if (tarefa.status === 'fazer') payload.status = 'andamento';
-
+    if (tarefa.status === 'fazer') {
+      payload.status = 'andamento';
+      payload.andamento_em = new Date().toISOString();
+    }
     await supabase.from('tarefas').update(payload).eq('id', tarefa.id);
+  }
+
+  for (const tarefa of tarefasPresas || []) {
+    await notificar(tarefa.usuario_id, {
+      title: tarefa.titulo,
+      body: `Em andamento há mais de ${HORAS_ANDAMENTO_PARADO}h — sem cobrança, só um aviso.`,
+      url: '/',
+    });
+
+    await supabase
+      .from('tarefas')
+      .update({
+        status: 'atrasado',
+        vezes_adiada: (tarefa.vezes_adiada || 0) + 1,
+        atraso_notificado_em: new Date().toISOString(),
+      })
+      .eq('id', tarefa.id);
   }
 
   if (endpointsExpirados.length > 0) {
     await supabase.from('push_subscriptions').delete().in('endpoint', endpointsExpirados);
   }
 
-  return new Response(JSON.stringify({ enviadas, tarefas: tarefas.length }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  });
+  return new Response(
+    JSON.stringify({ enviadas, noHorario: (tarefasNoHorario || []).length, presas: (tarefasPresas || []).length }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } }
+  );
 });
