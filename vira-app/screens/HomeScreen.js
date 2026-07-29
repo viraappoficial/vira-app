@@ -1,9 +1,10 @@
 import { AlertTriangle, CheckCircle2, Circle, Clock } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import EspacoCapsula from '../components/EspacoCapsula';
 import ViraLogo from '../components/ViraLogo';
-import { COMPLETE_MESSAGES, EMPTY_MESSAGES, GREETINGS, SUBTITLES, pickRandom } from '../lib/copy';
+import { ATRASADO_MESSAGES, COMPLETE_MESSAGES, EMPTY_MESSAGES, GREETINGS, SUBTITLES, pickRandom } from '../lib/copy';
+import { ordenarPorPrioridade } from '../lib/priorizacao';
 import { COLORS, PRIORIDADE_COLORS, PRIORIDADE_LABELS } from '../lib/theme';
 
 const STATUS_CONFIG = {
@@ -16,6 +17,7 @@ const STATUS_CONFIG = {
 export default function HomeScreen({ userName, tasks, espacos, refreshing, onRefresh, onToggle, onEditTask }) {
   const [justCompletedId, setJustCompletedId] = useState(null);
   const [toast, setToast] = useState(null);
+  const atrasadoMsgCache = useRef({});
   const { width } = useWindowDimensions();
   const isWide = Platform.OS === 'web' && width >= 720;
 
@@ -31,15 +33,14 @@ export default function HomeScreen({ userName, tasks, espacos, refreshing, onRef
   const pendentes = pendentesList.length;
   const atrasadas = pendentesList.filter((t) => t.status === 'atrasado').length;
 
-  const ordenadas = useMemo(
-    () =>
-      [...pendentesList].sort((a, b) => {
-        if (!a.hora) return 1;
-        if (!b.hora) return -1;
-        return a.hora.localeCompare(b.hora);
-      }),
-    [pendentesList]
-  );
+  const ordenadas = useMemo(() => ordenarPorPrioridade(pendentesList), [pendentesList]);
+
+  function atrasadoMsg(taskId) {
+    if (!atrasadoMsgCache.current[taskId]) {
+      atrasadoMsgCache.current[taskId] = pickRandom(ATRASADO_MESSAGES);
+    }
+    return atrasadoMsgCache.current[taskId];
+  }
 
   async function handleToggle(task, event) {
     if (task.status !== 'concluido') {
@@ -123,6 +124,11 @@ export default function HomeScreen({ userName, tasks, espacos, refreshing, onRef
                 {item.descricao && (
                   <Text style={styles.taskDescricao} numberOfLines={1}>
                     {item.descricao}
+                  </Text>
+                )}
+                {item.status === 'atrasado' && (
+                  <Text style={styles.taskAtrasado} numberOfLines={1}>
+                    {atrasadoMsg(item.id)}
                   </Text>
                 )}
                 <View style={styles.taskMeta}>
@@ -242,6 +248,13 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 12,
     marginBottom: 4,
+  },
+  taskAtrasado: {
+    color: COLORS.atrasado,
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginBottom: 4,
+    opacity: 0.85,
   },
   taskMeta: {
     flexDirection: 'row',

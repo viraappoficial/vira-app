@@ -6,6 +6,11 @@ export const SUBTITLES = [
 ];
 export const EMPTY_MESSAGES = ['Tudo em dia. Aproveita.', 'Nada pendente. Respira.', 'Zerou. Bom trabalho.'];
 export const COMPLETE_MESSAGES = ['Boa.', 'Feito.', 'Isso aí.'];
+export const ATRASADO_MESSAGES = ['Ficou pra trás — bora resolver?', 'Isso ainda te espera.', 'Passou da hora, mas tá aqui.'];
+export const VIRAR_DIA_MESSAGES = [
+  'Novo dia. O que não rolou ontem, tá aqui de novo — sem drama.',
+  'Dia novo, lista limpa de culpa.',
+];
 
 export function pickRandom(pool) {
   return pool[Math.floor(Math.random() * pool.length)];
