@@ -70,3 +70,10 @@ export function formatDiaLongo(dateStr) {
   const weekday = dt.toLocaleDateString('pt-BR', { weekday: 'long' });
   return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${dt.getDate()} de ${MESES[dt.getMonth()]}`;
 }
+
+export function formatDiaRelativo(dateStr) {
+  const hoje = todayIso();
+  if (dateStr === hoje) return 'Hoje';
+  if (dateStr === addDaysIso(hoje, -1)) return 'Ontem';
+  return formatDiaLongo(dateStr);
+}

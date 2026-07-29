@@ -4,7 +4,9 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions,
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import EspacoCapsula from '../components/EspacoCapsula';
+import ModalHistorico from '../components/ModalHistorico';
 import ViraLogo from '../components/ViraLogo';
+import { todayIso } from '../lib/calendario';
 import { EMPTY_MESSAGES, pickRandom } from '../lib/copy';
 import { ordenarPorPrioridade } from '../lib/priorizacao';
 import { COLORS, PRIORIDADE_COLORS, PRIORIDADE_LABELS } from '../lib/theme';
@@ -143,6 +145,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onEditTask }
   const [concluidasEscondidas, setConcluidasEscondidas] = useState(true);
   const [nativeDraggingId, setNativeDraggingId] = useState(null);
   const [nativeDragOver, setNativeDragOver] = useState(null);
+  const [historicoVisible, setHistoricoVisible] = useState(false);
   const dragIdRef = useRef(null);
   const touchDragRef = useRef(null);
   const columnRefs = useRef({});
@@ -159,8 +162,14 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onEditTask }
   }, []);
 
   const grouped = useMemo(() => {
+    const hoje = todayIso();
     const acc = { fazer: [], andamento: [], concluido: [], atrasado: [] };
-    tasks.forEach((t) => acc[t.status]?.push(t));
+    tasks.forEach((t) => {
+      // Concluído só mostra o que foi terminado hoje — o resto vive no Histórico,
+      // pra coluna não virar uma pilha infinita com o passar dos dias.
+      if (t.status === 'concluido' && t.concluido_em?.slice(0, 10) !== hoje) return;
+      acc[t.status]?.push(t);
+    });
     STATUS_ORDER.forEach((s) => {
       acc[s] = ordenarPorPrioridade(acc[s]);
     });
@@ -303,6 +312,9 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onEditTask }
       >
         <View style={styles.headerRow}>
           <Text style={styles.title}>Board</Text>
+          <Pressable onPress={() => setHistoricoVisible(true)}>
+            <Text style={styles.historicoLink}>Ver histórico</Text>
+          </Pressable>
         </View>
 
         {!IS_WEB && <Text style={styles.hintText}>Segure um card pra arrastar, toque pra editar.</Text>}
@@ -438,6 +450,15 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onEditTask }
           </Text>
         </View>
       )}
+
+      <ModalHistorico
+        visible={historicoVisible}
+        tasks={tasks}
+        espacos={espacos}
+        onClose={() => setHistoricoVisible(false)}
+        onRestore={(id) => onSetStatus(id, 'fazer')}
+        onEditTask={onEditTask}
+      />
     </View>
   );
 }
@@ -467,6 +488,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  historicoLink: {
+    color: COLORS.accent,
+    fontSize: 12,
+    fontWeight: '500',
   },
   hintText: {
     color: COLORS.textSecondary,
