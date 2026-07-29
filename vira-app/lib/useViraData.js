@@ -116,6 +116,23 @@ export function useViraData(userId) {
     return { error };
   }
 
+  async function createModelo({ titulo_padrao, espaco_id, hora_padrao }) {
+    const { data, error } = await supabase
+      .from('modelos')
+      .insert({ usuario_id: userId, titulo_padrao, espaco_id, hora_padrao: hora_padrao || null })
+      .select()
+      .single();
+    if (!error) setModelos((prev) => [...prev, data]);
+    return { data, error };
+  }
+
+  async function deleteModelo(modeloId) {
+    setModelos((prev) => prev.filter((m) => m.id !== modeloId));
+    const { error } = await supabase.from('modelos').delete().eq('id', modeloId);
+    if (error) await loadData();
+    return { error };
+  }
+
   async function virarDia() {
     const hoje = new Date().toISOString().slice(0, 10);
     const paraAtrasar = tasks.filter(
@@ -145,6 +162,8 @@ export function useViraData(userId) {
     createEspaco,
     updateEspaco,
     deleteEspaco,
+    createModelo,
+    deleteModelo,
     setTaskStatus,
     virarDia,
   };
