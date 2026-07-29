@@ -138,7 +138,8 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
   const [dragOver, setDragOver] = useState(null);
   const [touchDrag, setTouchDrag] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
-  const [recolhidas, setRecolhidas] = useState({ concluido: true });
+  const [recolhidas, setRecolhidas] = useState({});
+  const [concluidasEscondidas, setConcluidasEscondidas] = useState(true);
   const [nativeDraggingId, setNativeDraggingId] = useState(null);
   const [nativeDragOver, setNativeDragOver] = useState(null);
   const dragIdRef = useRef(null);
@@ -195,6 +196,10 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
 
   function toggleRecolhida(status) {
     setRecolhidas((prev) => ({ ...prev, [status]: !prev[status] }));
+  }
+
+  function toggleConcluidasEscondidas() {
+    setConcluidasEscondidas((v) => !v);
   }
 
   function measureColumn(status) {
@@ -308,26 +313,42 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
           const isOver = dragOver === s;
           const isRecolhida = !!recolhidas[s];
 
+          const isEscondida = s === 'concluido' && concluidasEscondidas;
+
           const columnInner = (
             <>
-              <Pressable style={styles.columnHeader} onPress={() => toggleRecolhida(s)}>
-                <cfg.Icon size={14} color={cfg.color} />
-                <Text style={styles.columnLabel}>{cfg.label}</Text>
-                <Text style={styles.columnCount}>{lista.length}</Text>
-                {s === 'concluido' ? (
-                  isRecolhida ? (
-                    <Eye size={14} color={COLORS.textSecondary} style={styles.columnChevron} />
-                  ) : (
-                    <EyeOff size={14} color={COLORS.textSecondary} style={styles.columnChevron} />
-                  )
-                ) : isRecolhida ? (
-                  <ChevronRight size={14} color={COLORS.textSecondary} style={styles.columnChevron} />
-                ) : (
-                  <ChevronDown size={14} color={COLORS.textSecondary} style={styles.columnChevron} />
+              <View style={styles.columnHeader}>
+                <Pressable style={styles.columnHeaderMain} onPress={() => toggleRecolhida(s)}>
+                  <cfg.Icon size={14} color={cfg.color} />
+                  <Text style={styles.columnLabel}>{cfg.label}</Text>
+                  <Text style={styles.columnCount}>{lista.length}</Text>
+                </Pressable>
+                {s === 'concluido' && (
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                      toggleConcluidasEscondidas();
+                    }}
+                    hitSlop={8}
+                    style={styles.eyeButton}
+                  >
+                    {concluidasEscondidas ? (
+                      <Eye size={14} color={COLORS.textSecondary} />
+                    ) : (
+                      <EyeOff size={14} color={COLORS.textSecondary} />
+                    )}
+                  </Pressable>
                 )}
-              </Pressable>
+                <Pressable onPress={() => toggleRecolhida(s)} hitSlop={8}>
+                  {isRecolhida ? (
+                    <ChevronRight size={14} color={COLORS.textSecondary} style={styles.columnChevron} />
+                  ) : (
+                    <ChevronDown size={14} color={COLORS.textSecondary} style={styles.columnChevron} />
+                  )}
+                </Pressable>
+              </View>
 
-              {isRecolhida ? null : lista.length === 0 ? (
+              {isRecolhida || isEscondida ? null : lista.length === 0 ? (
                 <Text style={styles.emptyText}>{emptyMsgByColumn[s]}</Text>
               ) : (
                 lista.map((t) => {
@@ -478,6 +499,13 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
+  columnHeaderMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 0,
+  },
   columnLabel: {
     color: COLORS.textSecondary,
     fontSize: 12,
@@ -488,9 +516,10 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 12,
   },
-  columnChevron: {
-    marginLeft: 'auto',
+  eyeButton: {
+    padding: 2,
   },
+  columnChevron: {},
   emptyText: {
     color: COLORS.textSecondary,
     fontSize: 12,
