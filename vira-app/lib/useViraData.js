@@ -176,6 +176,10 @@ export function useViraData(userId) {
     });
 
     const interval = setInterval(() => {
+      // Também repuxa os dados a cada minuto pra pegar mudanças feitas no servidor
+      // (ex: a tarefa passar pra "andamento" sozinha quando bate o horário).
+      loadData();
+
       const hoje = new Date().toISOString().slice(0, 10);
       if (hoje !== ultimoDiaRef.current) {
         ultimoDiaRef.current = hoje;
@@ -186,7 +190,7 @@ export function useViraData(userId) {
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [loading, virarDia]);
+  }, [loading, virarDia, loadData]);
 
   return {
     espacos,

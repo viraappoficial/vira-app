@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
 
   const { data: tarefas, error: erroTarefas } = await supabase
     .from('tarefas')
-    .select('id, usuario_id, titulo, hora')
+    .select('id, usuario_id, titulo, hora, status')
     .eq('data_prevista', hoje)
     .in('status', ['fazer', 'andamento'])
     .is('notificado_em', null)
@@ -86,7 +86,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    await supabase.from('tarefas').update({ notificado_em: new Date().toISOString() }).eq('id', tarefa.id);
+    const payload: Record<string, unknown> = { notificado_em: new Date().toISOString() };
+    if (tarefa.status === 'fazer') payload.status = 'andamento';
+
+    await supabase.from('tarefas').update(payload).eq('id', tarefa.id);
   }
 
   if (endpointsExpirados.length > 0) {
