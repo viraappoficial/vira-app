@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock } from 'lucide-react-native';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock, Eye, EyeOff } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -314,7 +314,13 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
                 <cfg.Icon size={14} color={cfg.color} />
                 <Text style={styles.columnLabel}>{cfg.label}</Text>
                 <Text style={styles.columnCount}>{lista.length}</Text>
-                {isRecolhida ? (
+                {s === 'concluido' ? (
+                  isRecolhida ? (
+                    <Eye size={14} color={COLORS.textSecondary} style={styles.columnChevron} />
+                  ) : (
+                    <EyeOff size={14} color={COLORS.textSecondary} style={styles.columnChevron} />
+                  )
+                ) : isRecolhida ? (
                   <ChevronRight size={14} color={COLORS.textSecondary} style={styles.columnChevron} />
                 ) : (
                   <ChevronDown size={14} color={COLORS.textSecondary} style={styles.columnChevron} />
