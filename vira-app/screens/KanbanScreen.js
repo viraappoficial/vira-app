@@ -5,7 +5,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import EspacoCapsula from '../components/EspacoCapsula';
 import ViraLogo from '../components/ViraLogo';
-import { EMPTY_MESSAGES, pickRandom, VIRAR_DIA_MESSAGES } from '../lib/copy';
+import { EMPTY_MESSAGES, pickRandom } from '../lib/copy';
 import { ordenarPorPrioridade } from '../lib/priorizacao';
 import { COLORS, PRIORIDADE_COLORS, PRIORIDADE_LABELS } from '../lib/theme';
 
@@ -135,7 +135,7 @@ function NativeDraggableCard({ task, espaco, onEditTask, onDragStart, onDragUpda
   );
 }
 
-export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, onEditTask }) {
+export default function KanbanScreen({ tasks, espacos, onSetStatus, onEditTask }) {
   const [dragOver, setDragOver] = useState(null);
   const [touchDrag, setTouchDrag] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
@@ -143,7 +143,6 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
   const [concluidasEscondidas, setConcluidasEscondidas] = useState(true);
   const [nativeDraggingId, setNativeDraggingId] = useState(null);
   const [nativeDragOver, setNativeDragOver] = useState(null);
-  const [toast, setToast] = useState(null);
   const dragIdRef = useRef(null);
   const touchDragRef = useRef(null);
   const columnRefs = useRef({});
@@ -241,14 +240,6 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
     [onSetStatus]
   );
 
-  async function handleVirarDia() {
-    const movidas = await onVirarDia();
-    if (movidas > 0) {
-      setToast(pickRandom(VIRAR_DIA_MESSAGES));
-      setTimeout(() => setToast(null), 2200);
-    }
-  }
-
   function handleDragEnd() {
     setDraggingId(null);
     setDragOver(null);
@@ -312,9 +303,6 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
       >
         <View style={styles.headerRow}>
           <Text style={styles.title}>Board</Text>
-          <Pressable style={styles.virarDiaButton} onPress={handleVirarDia}>
-            <Text style={styles.virarDiaText}>Virar o dia</Text>
-          </Pressable>
         </View>
 
         {!IS_WEB && <Text style={styles.hintText}>Segure um card pra arrastar, toque pra editar.</Text>}
@@ -450,12 +438,6 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
           </Text>
         </View>
       )}
-
-      {toast && (
-        <View style={styles.toast}>
-          <Text style={styles.toastText}>{toast}</Text>
-        </View>
-      )}
     </View>
   );
 }
@@ -495,17 +477,6 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 18,
     fontWeight: '600',
-  },
-  virarDiaButton: {
-    backgroundColor: COLORS.accentSoft,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  virarDiaText: {
-    color: COLORS.accent,
-    fontSize: 12,
-    fontWeight: '500',
   },
   column: {
     backgroundColor: COLORS.surface,
@@ -619,23 +590,5 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
     transform: [{ rotate: '-2deg' }, { scale: 1.03 }],
     boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-  },
-  toast: {
-    position: 'absolute',
-    bottom: 32,
-    alignSelf: 'center',
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 999,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    maxWidth: 320,
-  },
-  toastText: {
-    color: COLORS.text,
-    fontSize: 13,
-    fontWeight: '500',
-    textAlign: 'center',
   },
 });
