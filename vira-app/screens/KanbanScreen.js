@@ -162,6 +162,7 @@ export default function KanbanScreen({ tasks, espacos, areaAtuacao, onSetStatus,
   const [nativeDragOver, setNativeDragOver] = useState(null);
   const [historicoVisible, setHistoricoVisible] = useState(false);
   const [quebrarTask, setQuebrarTask] = useState(null);
+  const [espacoFiltro, setEspacoFiltro] = useState(null);
   const dragIdRef = useRef(null);
   const touchDragRef = useRef(null);
   const columnRefs = useRef({});
@@ -181,6 +182,7 @@ export default function KanbanScreen({ tasks, espacos, areaAtuacao, onSetStatus,
     const hoje = todayIso();
     const acc = { fazer: [], andamento: [], concluido: [], atrasado: [] };
     tasks.forEach((t) => {
+      if (espacoFiltro && t.espaco_id !== espacoFiltro) return;
       // Concluído só mostra o que foi terminado hoje — o resto vive no Histórico,
       // pra coluna não virar uma pilha infinita com o passar dos dias.
       if (t.status === 'concluido' && t.concluido_em?.slice(0, 10) !== hoje) return;
@@ -190,7 +192,9 @@ export default function KanbanScreen({ tasks, espacos, areaAtuacao, onSetStatus,
       acc[s] = ordenarPorPrioridade(acc[s]);
     });
     return acc;
-  }, [tasks]);
+  }, [tasks, espacoFiltro]);
+
+  const espacosList = useMemo(() => Object.values(espacos), [espacos]);
 
   function handleDragStart(e, taskId, titulo) {
     dragIdRef.current = taskId;
@@ -332,6 +336,30 @@ export default function KanbanScreen({ tasks, espacos, areaAtuacao, onSetStatus,
             <Text style={styles.historicoLink}>Ver histórico</Text>
           </Pressable>
         </View>
+
+        {espacosList.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtroRow}>
+            <Pressable
+              onPress={() => setEspacoFiltro(null)}
+              style={[styles.filtroChip, !espacoFiltro && styles.filtroChipAtivo]}
+            >
+              <Text style={[styles.filtroChipText, !espacoFiltro && styles.filtroChipTextAtivo]}>Todos</Text>
+            </Pressable>
+            {espacosList.map((e) => {
+              const ativo = espacoFiltro === e.id;
+              return (
+                <Pressable
+                  key={e.id}
+                  onPress={() => setEspacoFiltro(ativo ? null : e.id)}
+                  style={[styles.filtroChip, ativo && { backgroundColor: `${e.cor}33`, borderColor: e.cor }]}
+                >
+                  <View style={[styles.filtroDot, { backgroundColor: e.cor }]} />
+                  <Text style={[styles.filtroChipText, ativo && { color: e.cor }]}>{e.nome}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
 
         {!IS_WEB && <Text style={styles.hintText}>Segure um card pra arrastar, toque pra editar.</Text>}
 
@@ -530,6 +558,39 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontSize: 12,
     fontWeight: '500',
+  },
+  filtroRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  filtroChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+  },
+  filtroChipAtivo: {
+    backgroundColor: COLORS.accentSoft,
+    borderColor: COLORS.accent,
+  },
+  filtroChipText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  filtroChipTextAtivo: {
+    color: COLORS.accent,
+  },
+  filtroDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
   hintText: {
     color: COLORS.textSecondary,
