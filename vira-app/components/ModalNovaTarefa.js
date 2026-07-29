@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Circle, Clock, Flag, Home as HomeIcon, Trash2, X } from 'lucide-react-native';
+import { AlertTriangle, CheckCircle2, Circle, Clock, Flag, Home as HomeIcon, Plus, Trash2, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -34,7 +34,18 @@ function formatHoraInput(text, previous) {
   return `${digits.slice(0, 2)}:${digits.slice(2)}`;
 }
 
-export default function ModalNovaTarefa({ visible, task, espacosList, modelosList, onClose, onCreate, onUpdate, onDelete }) {
+export default function ModalNovaTarefa({
+  visible,
+  task,
+  espacosList,
+  modelosList,
+  onClose,
+  onCreate,
+  onUpdate,
+  onDelete,
+  onSaveModelo,
+  onDeleteModelo,
+}) {
   const isEdit = !!task;
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -44,6 +55,7 @@ export default function ModalNovaTarefa({ visible, task, espacosList, modelosLis
   const [status, setStatus] = useState('fazer');
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [salvandoModelo, setSalvandoModelo] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -71,6 +83,14 @@ export default function ModalNovaTarefa({ visible, task, espacosList, modelosLis
     setTitulo(m.titulo_padrao);
     setEspacoId(m.espaco_id);
     setHora(m.hora_padrao ? m.hora_padrao.slice(0, 5) : '');
+  }
+
+  async function handleSalvarModelo() {
+    if (!titulo.trim() || salvandoModelo) return;
+    setSalvandoModelo(true);
+    const horaValida = /^([01]\d|2[0-3]):([0-5]\d)$/.test(hora) ? hora : null;
+    await onSaveModelo({ titulo_padrao: titulo.trim(), espaco_id: espacoId, hora_padrao: horaValida });
+    setSalvandoModelo(false);
   }
 
   async function handleSalvar() {
@@ -135,13 +155,24 @@ export default function ModalNovaTarefa({ visible, task, espacosList, modelosLis
             multiline
           />
 
-          {!isEdit && modelosList.length > 0 && (
+          {!isEdit && (modelosList.length > 0 || titulo.trim()) && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.modelosRow}>
               {modelosList.map((m) => (
-                <Pressable key={m.id} onPress={() => aplicarModelo(m)} style={styles.modeloChip}>
-                  <Text style={styles.modeloChipText}>{m.titulo_padrao}</Text>
-                </Pressable>
+                <View key={m.id} style={styles.modeloChip}>
+                  <Pressable onPress={() => aplicarModelo(m)}>
+                    <Text style={styles.modeloChipText}>{m.titulo_padrao}</Text>
+                  </Pressable>
+                  <Pressable onPress={() => onDeleteModelo(m.id)} hitSlop={6}>
+                    <X size={11} color={COLORS.accent} />
+                  </Pressable>
+                </View>
               ))}
+              {titulo.trim() && (
+                <Pressable onPress={handleSalvarModelo} disabled={salvandoModelo} style={styles.modeloChipNovo}>
+                  <Plus size={11} color={COLORS.textSecondary} />
+                  <Text style={styles.modeloChipNovoText}>Salvar como atalho</Text>
+                </Pressable>
+              )}
             </ScrollView>
           )}
 
@@ -349,6 +380,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modeloChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: COLORS.accentSoft,
     borderRadius: 999,
     paddingHorizontal: 12,
@@ -357,6 +391,22 @@ const styles = StyleSheet.create({
   },
   modeloChipText: {
     color: COLORS.accent,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  modeloChipNovo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  modeloChipNovoText: {
+    color: COLORS.textSecondary,
     fontSize: 12,
     fontWeight: '500',
   },

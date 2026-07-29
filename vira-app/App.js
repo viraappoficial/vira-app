@@ -173,6 +173,8 @@ function MainApp({ session }) {
           const { error } = await data.deleteTarefa(id);
           if (!error) setTaskModal(undefined);
         }}
+        onSaveModelo={data.createModelo}
+        onDeleteModelo={data.deleteModelo}
       />
 
       <ModalEspacos
