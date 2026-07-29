@@ -1,12 +1,13 @@
-import { AlertTriangle, CheckCircle2, Circle, Clock } from 'lucide-react-native';
+import { AlertTriangle, CheckCircle2, Circle, Clock, Sparkles } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
-import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import CalendarHome from '../components/CalendarHome';
 import EspacoCapsula from '../components/EspacoCapsula';
 import ViraLogo from '../components/ViraLogo';
 import { formatDiaLongo, todayIso } from '../lib/calendario';
 import { ATRASADO_MESSAGES, COMPLETE_MESSAGES, EMPTY_MESSAGES, GREETINGS, SUBTITLES, pickRandom } from '../lib/copy';
 import { ordenarPorPrioridade } from '../lib/priorizacao';
+import { chamarResumoDia } from '../lib/resumoDia';
 import { COLORS, PRIORIDADE_COLORS, PRIORIDADE_LABELS } from '../lib/theme';
 
 const STATUS_CONFIG = {
@@ -29,6 +30,9 @@ export default function HomeScreen({
 }) {
   const [justCompletedId, setJustCompletedId] = useState(null);
   const [toast, setToast] = useState(null);
+  const [resumo, setResumo] = useState(null);
+  const [resumoLoading, setResumoLoading] = useState(false);
+  const [resumoErro, setResumoErro] = useState(null);
   const atrasadoMsgCache = useRef({});
   const { width } = useWindowDimensions();
   const isWide = Platform.OS === 'web' && width >= 720;
@@ -49,6 +53,30 @@ export default function HomeScreen({
   );
   const pendentes = todayScope.length;
   const atrasadas = todayScope.filter((t) => t.status === 'atrasado').length;
+
+  const tarefasDeHoje = useMemo(
+    () =>
+      tasks.filter(
+        (t) =>
+          t.data_prevista === hoje ||
+          t.status === 'atrasado' ||
+          (t.status === 'concluido' && t.concluido_em?.slice(0, 10) === hoje)
+      ),
+    [tasks, hoje]
+  );
+
+  async function handleResumoDia() {
+    setResumoLoading(true);
+    setResumoErro(null);
+    try {
+      const texto = await chamarResumoDia(userName, tarefasDeHoje);
+      setResumo(texto);
+    } catch (err) {
+      setResumoErro(err.message);
+    } finally {
+      setResumoLoading(false);
+    }
+  }
 
   const agendaList = useMemo(() => {
     if (isHoje) return todayScope;
@@ -103,6 +131,39 @@ export default function HomeScreen({
                     </Text>
                   </View>
                 )}
+              </View>
+            )}
+
+            {isHoje && (
+              <View style={styles.resumoBox}>
+                {resumo ? (
+                  <>
+                    <View style={styles.resumoHeadRow}>
+                      <Sparkles size={13} color={COLORS.accent} />
+                      <Text style={styles.resumoLabel}>Resumo do dia</Text>
+                    </View>
+                    <Text style={styles.resumoTexto}>{resumo}</Text>
+                    <Pressable onPress={handleResumoDia} hitSlop={6}>
+                      <Text style={styles.resumoRefazer}>Gerar de novo</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <Pressable
+                    style={styles.resumoButton}
+                    onPress={handleResumoDia}
+                    disabled={resumoLoading}
+                  >
+                    {resumoLoading ? (
+                      <ActivityIndicator size="small" color={COLORS.accent} />
+                    ) : (
+                      <Sparkles size={14} color={COLORS.accent} />
+                    )}
+                    <Text style={styles.resumoButtonText}>
+                      {resumoLoading ? 'Gerando resumo...' : 'Ver resumo do dia'}
+                    </Text>
+                  </Pressable>
+                )}
+                {resumoErro && <Text style={styles.resumoErro}>{resumoErro}</Text>}
               </View>
             )}
 
@@ -233,6 +294,51 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  resumoBox: {
+    backgroundColor: COLORS.accentSoft,
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 14,
+  },
+  resumoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  resumoButtonText: {
+    color: COLORS.accent,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  resumoHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  resumoLabel: {
+    color: COLORS.accent,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  resumoTexto: {
+    color: COLORS.text,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 8,
+  },
+  resumoRefazer: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  resumoErro: {
+    color: COLORS.atrasado,
+    fontSize: 11,
+    marginTop: 6,
   },
   agendaHead: {
     flexDirection: 'row',
