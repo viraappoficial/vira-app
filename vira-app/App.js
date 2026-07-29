@@ -11,6 +11,7 @@ import ModalNovoEspaco from './components/ModalNovoEspaco';
 import ViraLogo from './components/ViraLogo';
 import { useViraData } from './lib/useViraData';
 import { supabase } from './lib/supabase';
+import { todayIso } from './lib/calendario';
 import { VIRAR_DIA_MESSAGES, pickRandom } from './lib/copy';
 import { COLORS } from './lib/theme';
 import AuthScreen from './screens/AuthScreen';
@@ -27,6 +28,7 @@ function MainApp({ session }) {
   const [confettiTrigger, setConfettiTrigger] = useState(0);
   const [confettiOrigin, setConfettiOrigin] = useState(null);
   const [virarDiaToast, setVirarDiaToast] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(todayIso());
   const userName = session.user.email.split('@')[0];
   const data = useViraData(session.user.id);
   const onboardingKey = `vira_onboarding_seen_${session.user.id}`;
@@ -128,6 +130,8 @@ function MainApp({ session }) {
             onRefresh={data.refresh}
             onToggle={handleToggleHome}
             onEditTask={setTaskModal}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
           />
         ) : (
           <KanbanScreen
@@ -172,6 +176,7 @@ function MainApp({ session }) {
         task={taskModal}
         espacosList={data.espacosList}
         modelosList={data.modelos}
+        defaultDate={selectedDate}
         onClose={() => setTaskModal(undefined)}
         onCreate={async (payload) => {
           const { error } = await data.createTarefa(payload);
