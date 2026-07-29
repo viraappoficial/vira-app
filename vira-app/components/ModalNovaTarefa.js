@@ -7,6 +7,7 @@ import {
   Flag,
   Home as HomeIcon,
   Plus,
+  Sparkles,
   Trash2,
   X,
 } from 'lucide-react-native';
@@ -23,6 +24,7 @@ import {
 } from 'react-native';
 import DatePickerPopover from './DatePickerPopover';
 import { formatDiaCurto, todayIso } from '../lib/calendario';
+import { chamarSecretario } from '../lib/secretario';
 import { COLORS, PRIORIDADE_COLORS } from '../lib/theme';
 
 const PRIORIDADES = [
@@ -72,6 +74,8 @@ export default function ModalNovaTarefa({
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [salvandoModelo, setSalvandoModelo] = useState(false);
+  const [secretarioLoading, setSecretarioLoading] = useState(false);
+  const [secretarioErro, setSecretarioErro] = useState(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -102,6 +106,25 @@ export default function ModalNovaTarefa({
     setTitulo(m.titulo_padrao);
     setEspacoId(m.espaco_id);
     setHora(m.hora_padrao ? m.hora_padrao.slice(0, 5) : '');
+  }
+
+  async function handleSecretario() {
+    if (!titulo.trim() || secretarioLoading) return;
+    setSecretarioLoading(true);
+    setSecretarioErro(null);
+    try {
+      const resultado = await chamarSecretario(titulo.trim(), espacosList);
+      setTitulo(resultado.titulo);
+      if (resultado.data_prevista) setDataPrevista(resultado.data_prevista);
+      if (resultado.hora) setHora(resultado.hora);
+      if (resultado.espaco_id) setEspacoId(resultado.espaco_id);
+      setPrioridade(resultado.prioridade);
+    } catch (e) {
+      setSecretarioErro(e.message);
+      setTimeout(() => setSecretarioErro(null), 3000);
+    } finally {
+      setSecretarioLoading(false);
+    }
   }
 
   async function handleSalvarModelo() {
@@ -165,6 +188,24 @@ export default function ModalNovaTarefa({
             style={styles.input}
             onSubmitEditing={handleSalvar}
           />
+
+          {!isEdit && titulo.trim() && (
+            <Pressable
+              onPress={handleSecretario}
+              disabled={secretarioLoading}
+              style={[styles.secretarioButton, secretarioLoading && styles.buttonDisabled]}
+            >
+              {secretarioLoading ? (
+                <ActivityIndicator size="small" color={COLORS.accent} />
+              ) : (
+                <Sparkles size={13} color={COLORS.accent} />
+              )}
+              <Text style={styles.secretarioButtonText}>
+                {secretarioLoading ? 'Pensando...' : 'Preencher com Secretário'}
+              </Text>
+            </Pressable>
+          )}
+          {secretarioErro && <Text style={styles.secretarioErro}>{secretarioErro}</Text>}
 
           <TextInput
             value={descricao}
@@ -403,6 +444,29 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
     paddingBottom: 8,
     marginBottom: 16,
+  },
+  secretarioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: COLORS.accentSoft,
+    backgroundColor: COLORS.accentSoft,
+    borderRadius: 10,
+    paddingVertical: 9,
+    marginBottom: 8,
+  },
+  secretarioButtonText: {
+    color: COLORS.accent,
+    fontSize: 12.5,
+    fontWeight: '600',
+  },
+  secretarioErro: {
+    color: COLORS.atrasado,
+    fontSize: 11.5,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   descricaoInput: {
     fontSize: 13,
