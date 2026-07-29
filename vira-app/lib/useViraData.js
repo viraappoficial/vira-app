@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
 export function useViraData(userId) {
@@ -175,8 +176,8 @@ export function useViraData(userId) {
       if (count > 0) setDiaViradoCount((v) => v + count);
     });
 
-    const interval = setInterval(() => {
-      // Também repuxa os dados a cada minuto pra pegar mudanças feitas no servidor
+    function checarVirada() {
+      // Também repuxa os dados pra pegar mudanças feitas no servidor
       // (ex: a tarefa passar pra "andamento" sozinha quando bate o horário).
       loadData();
 
@@ -187,9 +188,28 @@ export function useViraData(userId) {
           if (count > 0) setDiaViradoCount((v) => v + count);
         });
       }
-    }, 60000);
+    }
 
-    return () => clearInterval(interval);
+    const interval = setInterval(checarVirada, 60000);
+
+    // Em aba minimizada/segundo plano o navegador congela o setInterval, então
+    // garantimos um refresh assim que a pessoa volta pra aba — é exatamente o
+    // momento em que uma mudança feita no servidor (ex: notificação de horário)
+    // precisa aparecer.
+    function handleVisibilidade() {
+      if (document.visibilityState === 'visible') checarVirada();
+    }
+
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilidade);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilidade);
+      }
+    };
   }, [loading, virarDia, loadData]);
 
   return {
