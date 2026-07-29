@@ -117,6 +117,7 @@ function MainApp({ session }) {
         onSaveNome={handleSaveNome}
         onSaveArea={handleSaveArea}
         onCreateEspaco={data.createEspaco}
+        onDeleteEspaco={data.deleteEspaco}
         onCreateTasks={handleOnboardingCreateTasks}
         onDone={handleOnboardingDone}
       />
