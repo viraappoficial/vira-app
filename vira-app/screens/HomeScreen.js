@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock } from 'lucide-react-native';
+import { AlertTriangle, CheckCircle2, Circle, Clock, Eye, EyeOff } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import EspacoCapsula from '../components/EspacoCapsula';
@@ -155,15 +155,14 @@ export default function HomeScreen({ userName, tasks, espacos, refreshing, onRef
           concluidasList.length > 0 ? (
             <View style={styles.concluidasSection}>
               <Pressable style={styles.concluidasToggle} onPress={() => setShowConcluidas((v) => !v)}>
-                <CheckCircle2 size={14} color={COLORS.textSecondary} />
+                {showConcluidas ? (
+                  <EyeOff size={14} color={COLORS.textSecondary} />
+                ) : (
+                  <Eye size={14} color={COLORS.textSecondary} />
+                )}
                 <Text style={styles.concluidasToggleText}>
                   {showConcluidas ? 'Esconder concluídas' : `Ver concluídas (${concluidasList.length})`}
                 </Text>
-                {showConcluidas ? (
-                  <ChevronDown size={14} color={COLORS.textSecondary} />
-                ) : (
-                  <ChevronRight size={14} color={COLORS.textSecondary} />
-                )}
               </Pressable>
               {showConcluidas && concluidasList.map((item) => renderTaskRow(item, { concluida: true }))}
             </View>
