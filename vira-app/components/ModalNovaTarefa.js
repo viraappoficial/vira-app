@@ -57,6 +57,7 @@ export default function ModalNovaTarefa({
   espacosList,
   modelosList,
   defaultDate,
+  areaAtuacao,
   onClose,
   onCreate,
   onUpdate,
@@ -117,7 +118,7 @@ export default function ModalNovaTarefa({
     setSecretarioLoading(true);
     setSecretarioErro(null);
     try {
-      const lista = await chamarSecretario(titulo.trim(), espacosList);
+      const lista = await chamarSecretario(titulo.trim(), espacosList, areaAtuacao);
 
       if (lista.length > 1) {
         // Várias tarefas detectadas na mesma frase: cria todas direto, sem passar

@@ -8,9 +8,9 @@ const MENSAGENS_ERRO = {
 };
 
 // Chama a Edge Function que sugere subtarefas menores pra uma tarefa que anda sendo adiada.
-export async function chamarQuebrarTarefa(titulo, descricao) {
+export async function chamarQuebrarTarefa(titulo, descricao, areaAtuacao) {
   const { data, error } = await supabase.functions.invoke('quebrar-tarefa', {
-    body: { titulo, descricao: descricao || '' },
+    body: { titulo, descricao: descricao || '', areaAtuacao: areaAtuacao || null },
   });
 
   if (error || !data || data.error) {

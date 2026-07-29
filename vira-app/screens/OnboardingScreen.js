@@ -1,36 +1,79 @@
 import { ArrowRight, Check, Plus } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import ViraLogo from '../components/ViraLogo';
+import ViraLogoSpinner from '../components/ViraLogoSpinner';
 import { COLORS } from '../lib/theme';
 
-const SUGESTOES = [
+const SUGESTOES_TAREFA = [
   'Responder e-mails pendentes',
   'Ligar pro fornecedor',
   'Marcar consulta',
   'Revisar planilha do mês',
 ];
 
-export default function OnboardingScreen({ onCreateTasks, onDone }) {
+const CORES_ESPACO = ['#5B8CFF', '#4FC98A', '#D9A544', '#8E6FE8', '#E86F9C', '#3FAE72'];
+
+const ESPACOS_SUGERIDOS = ['Trabalho', 'Pessoal', 'Estudos', 'Saúde'];
+
+export default function OnboardingScreen({
+  userNameSugerido,
+  onSaveNome,
+  onSaveArea,
+  onCreateEspaco,
+  onCreateTasks,
+  onDone,
+}) {
   const [passo, setPasso] = useState(0);
+  const [nome, setNome] = useState(userNameSugerido || '');
+  const [area, setArea] = useState('');
+  const [espacosCriados, setEspacosCriados] = useState([]);
+  const [novoEspacoInput, setNovoEspacoInput] = useState('');
+  const [salvandoPerfil, setSalvandoPerfil] = useState(false);
+  const [criandoEspaco, setCriandoEspaco] = useState(false);
   const [tarefas, setTarefas] = useState([]);
   const [input, setInput] = useState('');
   const [saving, setSaving] = useState(false);
-  const inputRef = useRef(null);
+  const nomeInputRef = useRef(null);
+  const espacoInputRef = useRef(null);
+  const tarefaInputRef = useRef(null);
 
   useEffect(() => {
-    if (passo === 1) setTimeout(() => inputRef.current?.focus(), 100);
+    if (passo === 1) setTimeout(() => nomeInputRef.current?.focus(), 100);
+    if (passo === 3) setTimeout(() => tarefaInputRef.current?.focus(), 100);
   }, [passo]);
 
-  function adicionar(titulo) {
+  async function handleSalvarPerfil() {
+    setSalvandoPerfil(true);
+    if (nome.trim()) await onSaveNome(nome.trim());
+    if (area.trim()) await onSaveArea(area.trim());
+    setSalvandoPerfil(false);
+    setPasso(2);
+  }
+
+  async function handleCriarEspaco(nomeEspaco) {
+    const texto = (nomeEspaco ?? novoEspacoInput).trim();
+    if (!texto || criandoEspaco) return;
+    setCriandoEspaco(true);
+    const cor = CORES_ESPACO[espacosCriados.length % CORES_ESPACO.length];
+    const { data, error } = await onCreateEspaco({ nome: texto, cor, logo_url: null });
+    if (!error) {
+      setEspacosCriados((prev) => [...prev, data]);
+      setNovoEspacoInput('');
+    }
+    setCriandoEspaco(false);
+  }
+
+  const nomesJaCriados = espacosCriados.map((e) => e.nome.toLowerCase());
+
+  function adicionarTarefa(titulo) {
     const texto = titulo ?? input;
     if (!texto.trim()) return;
     setTarefas((prev) => [...prev, texto.trim()]);
     setInput('');
-    inputRef.current?.focus();
+    tarefaInputRef.current?.focus();
   }
 
-  function remover(idx) {
+  function removerTarefa(idx) {
     setTarefas((prev) => prev.filter((_, i) => i !== idx));
   }
 
@@ -38,7 +81,7 @@ export default function OnboardingScreen({ onCreateTasks, onDone }) {
     setSaving(true);
     await onCreateTasks(tarefas);
     setSaving(false);
-    setPasso(2);
+    setPasso(4);
   }
 
   return (
@@ -46,7 +89,7 @@ export default function OnboardingScreen({ onCreateTasks, onDone }) {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {passo === 0 && (
           <View style={styles.centerBlock}>
-            <ViraLogo size={56} />
+            <ViraLogoSpinner size={56} loop={false} />
             <Text style={styles.title}>vira</Text>
             <Text style={styles.subtitle}>
               Não é mais um sistema pra manter.{'\n'}É só o que você precisa lembrar.
@@ -60,28 +103,126 @@ export default function OnboardingScreen({ onCreateTasks, onDone }) {
 
         {passo === 1 && (
           <View style={styles.captureBlock}>
+            <Text style={styles.captureTitle}>Conta pra gente</Text>
+            <Text style={styles.captureSubtitle}>
+              Isso ajuda o Secretário a te entender melhor nas sugestões.
+            </Text>
+
+            <Text style={styles.fieldLabel}>Como podemos te chamar?</Text>
+            <TextInput
+              ref={nomeInputRef}
+              value={nome}
+              onChangeText={setNome}
+              placeholder="Seu nome"
+              placeholderTextColor={COLORS.textSecondary}
+              style={styles.input}
+              onSubmitEditing={handleSalvarPerfil}
+            />
+
+            <Text style={styles.fieldLabel}>Com o que você trabalha ou estuda?</Text>
+            <TextInput
+              value={area}
+              onChangeText={setArea}
+              placeholder="Ex: farmácia, advocacia, estudante..."
+              placeholderTextColor={COLORS.textSecondary}
+              style={styles.input}
+              onSubmitEditing={handleSalvarPerfil}
+            />
+
+            <Pressable
+              onPress={handleSalvarPerfil}
+              disabled={salvandoPerfil}
+              style={[styles.primaryButton, styles.fullWidth, salvandoPerfil && styles.addButtonDisabled]}
+            >
+              <Text style={styles.primaryButtonText}>{salvandoPerfil ? 'Salvando...' : 'Continuar'}</Text>
+            </Pressable>
+
+            <Pressable onPress={() => setPasso(2)} style={styles.skipButton}>
+              <Text style={styles.skipText}>Pular por agora</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {passo === 2 && (
+          <View style={styles.captureBlock}>
+            <Text style={styles.captureTitle}>Seus espaços</Text>
+            <Text style={styles.captureSubtitle}>
+              Espaços organizam suas tarefas por área da vida — trabalho, pessoal, o que fizer sentido.
+            </Text>
+
+            <View style={styles.sugestoesRow}>
+              {ESPACOS_SUGERIDOS.filter((s) => !nomesJaCriados.includes(s.toLowerCase())).map((s) => (
+                <Pressable key={s} onPress={() => handleCriarEspaco(s)} style={styles.sugestaoChip}>
+                  <Text style={styles.sugestaoText}>+ {s}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.inputRow}>
+              <TextInput
+                ref={espacoInputRef}
+                value={novoEspacoInput}
+                onChangeText={setNovoEspacoInput}
+                placeholder="Outro espaço..."
+                placeholderTextColor={COLORS.textSecondary}
+                style={styles.input}
+                onSubmitEditing={() => handleCriarEspaco()}
+              />
+              <Pressable
+                onPress={() => handleCriarEspaco()}
+                disabled={!novoEspacoInput.trim() || criandoEspaco}
+                style={[styles.addButton, !novoEspacoInput.trim() && styles.addButtonDisabled]}
+              >
+                <Plus size={18} color={COLORS.accent} />
+              </Pressable>
+            </View>
+
+            {espacosCriados.length > 0 && (
+              <View style={styles.listaBlock}>
+                {espacosCriados.map((e) => (
+                  <View key={e.id} style={styles.tarefaRow}>
+                    <View style={styles.espacoPreview}>
+                      <View style={[styles.espacoDot, { backgroundColor: e.cor }]} />
+                      <Text style={styles.tarefaText}>{e.nome}</Text>
+                    </View>
+                    <Check size={14} color={COLORS.concluido} />
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <Pressable style={[styles.primaryButton, styles.fullWidth]} onPress={() => setPasso(3)}>
+              <Text style={styles.primaryButtonText}>
+                {espacosCriados.length === 0 ? 'Continuar sem espaços' : 'Continuar'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {passo === 3 && (
+          <View style={styles.captureBlock}>
             <Text style={styles.captureTitle}>O que tá pendente agora?</Text>
             <Text style={styles.captureSubtitle}>Joga 2 ou 3 coisas que você precisa lembrar. Sem enrolação.</Text>
 
             <View style={styles.inputRow}>
               <TextInput
-                ref={inputRef}
+                ref={tarefaInputRef}
                 value={input}
                 onChangeText={setInput}
                 placeholder="Ex: ligar pro fornecedor"
                 placeholderTextColor={COLORS.textSecondary}
                 style={styles.input}
-                onSubmitEditing={() => adicionar()}
+                onSubmitEditing={() => adicionarTarefa()}
               />
-              <Pressable onPress={() => adicionar()} disabled={!input.trim()} style={[styles.addButton, !input.trim() && styles.addButtonDisabled]}>
+              <Pressable onPress={() => adicionarTarefa()} disabled={!input.trim()} style={[styles.addButton, !input.trim() && styles.addButtonDisabled]}>
                 <Plus size={18} color={COLORS.accent} />
               </Pressable>
             </View>
 
             {tarefas.length === 0 && (
               <View style={styles.sugestoesRow}>
-                {SUGESTOES.map((s) => (
-                  <Pressable key={s} onPress={() => adicionar(s)} style={styles.sugestaoChip}>
+                {SUGESTOES_TAREFA.map((s) => (
+                  <Pressable key={s} onPress={() => adicionarTarefa(s)} style={styles.sugestaoChip}>
                     <Text style={styles.sugestaoText}>+ {s}</Text>
                   </Pressable>
                 ))}
@@ -93,7 +234,7 @@ export default function OnboardingScreen({ onCreateTasks, onDone }) {
                 {tarefas.map((t, i) => (
                   <View key={i} style={styles.tarefaRow}>
                     <Text style={styles.tarefaText}>{t}</Text>
-                    <Pressable onPress={() => remover(i)}>
+                    <Pressable onPress={() => removerTarefa(i)}>
                       <Text style={styles.removerText}>remover</Text>
                     </Pressable>
                   </View>
@@ -115,15 +256,15 @@ export default function OnboardingScreen({ onCreateTasks, onDone }) {
               </Text>
             </Pressable>
 
-            <Pressable onPress={() => setPasso(2)} style={styles.skipButton}>
+            <Pressable onPress={() => setPasso(4)} style={styles.skipButton}>
               <Text style={styles.skipText}>Pular por agora</Text>
             </Pressable>
           </View>
         )}
 
-        {passo === 2 && (
+        {passo === 4 && (
           <View style={styles.centerBlock}>
-            <ViraLogo size={48} />
+            <ViraLogoSpinner size={48} loop={false} />
             <View style={styles.checkCircle}>
               <Check size={26} color={COLORS.concluido} strokeWidth={3} />
             </View>
@@ -208,6 +349,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 4,
   },
+  fieldLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginBottom: -6,
+  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -263,6 +409,16 @@ const styles = StyleSheet.create({
   tarefaText: {
     color: COLORS.text,
     fontSize: 14,
+  },
+  espacoPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  espacoDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   removerText: {
     color: COLORS.textSecondary,

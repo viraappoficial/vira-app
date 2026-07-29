@@ -152,7 +152,7 @@ function NativeDraggableCard({ task, espaco, onEditTask, onQuebrar, onDragStart,
   );
 }
 
-export default function KanbanScreen({ tasks, espacos, onSetStatus, onEditTask, onCreateTarefa }) {
+export default function KanbanScreen({ tasks, espacos, areaAtuacao, onSetStatus, onEditTask, onCreateTarefa }) {
   const [dragOver, setDragOver] = useState(null);
   const [touchDrag, setTouchDrag] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
@@ -480,6 +480,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onEditTask, 
       <ModalQuebrarTarefa
         visible={!!quebrarTask}
         task={quebrarTask}
+        areaAtuacao={areaAtuacao}
         onClose={() => setQuebrarTask(null)}
         onConfirm={async (titulos) => {
           for (const titulo of titulos) {

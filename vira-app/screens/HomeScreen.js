@@ -19,6 +19,7 @@ const STATUS_CONFIG = {
 
 export default function HomeScreen({
   userName,
+  areaAtuacao,
   tasks,
   espacos,
   refreshing,
@@ -69,7 +70,7 @@ export default function HomeScreen({
     setResumoLoading(true);
     setResumoErro(null);
     try {
-      const texto = await chamarResumoDia(userName, tarefasDeHoje);
+      const texto = await chamarResumoDia(userName, tarefasDeHoje, areaAtuacao);
       setResumo(texto);
     } catch (err) {
       setResumoErro(err.message);

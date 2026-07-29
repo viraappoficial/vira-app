@@ -6,9 +6,9 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-function montarPrompt(titulo: string, descricao: string) {
+function montarPrompt(titulo: string, descricao: string, areaAtuacao: string | null) {
   return `Você é o Secretário do Vira. Uma tarefa está sendo adiada repetidamente, provavelmente porque é grande ou vaga demais pra encaixar no dia.
-
+${areaAtuacao ? `\nA pessoa trabalha/estuda com: ${areaAtuacao}. Use isso só como pista de contexto se ajudar a tornar as sugestões mais concretas, nunca invente algo que não tem a ver com a tarefa.\n` : ''}
 TAREFA:
 - Título: "${titulo}"
 ${descricao ? `- Descrição: "${descricao}"` : ''}
@@ -31,11 +31,12 @@ serve(async (req) => {
     return new Response('ok', { headers: CORS_HEADERS });
   }
 
-  let titulo: string, descricao: string;
+  let titulo: string, descricao: string, areaAtuacao: string | null;
   try {
     const body = await req.json();
     titulo = body.titulo;
     descricao = body.descricao || '';
+    areaAtuacao = body.areaAtuacao || null;
   } catch {
     return jsonResponse({ error: 'requisicao_invalida' }, 400);
   }
@@ -49,7 +50,7 @@ serve(async (req) => {
     return jsonResponse({ error: 'quebrar_indisponivel' }, 500);
   }
 
-  const prompt = montarPrompt(titulo, descricao);
+  const prompt = montarPrompt(titulo, descricao, areaAtuacao);
 
   let resposta: Response;
   try {

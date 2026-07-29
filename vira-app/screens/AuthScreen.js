@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import ViraLogo from '../components/ViraLogo';
+import ViraLogoSpinner from '../components/ViraLogoSpinner';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../lib/theme';
 
@@ -86,7 +86,7 @@ export default function AuthScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.content}>
-        <ViraLogo size={48} />
+        <ViraLogoSpinner size={48} loop={false} />
         <Text style={styles.title}>vira</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
 

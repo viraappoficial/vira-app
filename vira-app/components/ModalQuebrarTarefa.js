@@ -4,7 +4,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from '
 import { chamarQuebrarTarefa } from '../lib/quebrarTarefa';
 import { COLORS } from '../lib/theme';
 
-export default function ModalQuebrarTarefa({ visible, task, onClose, onConfirm }) {
+export default function ModalQuebrarTarefa({ visible, task, areaAtuacao, onClose, onConfirm }) {
   const [sugestoes, setSugestoes] = useState([]);
   const [selecionadas, setSelecionadas] = useState({});
   const [loading, setLoading] = useState(false);
@@ -17,7 +17,7 @@ export default function ModalQuebrarTarefa({ visible, task, onClose, onConfirm }
     setSelecionadas({});
     setErro(null);
     setLoading(true);
-    chamarQuebrarTarefa(task.titulo, task.descricao)
+    chamarQuebrarTarefa(task.titulo, task.descricao, areaAtuacao)
       .then((lista) => {
         setSugestoes(lista);
         const marcadas = {};
