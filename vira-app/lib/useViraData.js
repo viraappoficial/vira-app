@@ -193,21 +193,25 @@ export function useViraData(userId) {
     const interval = setInterval(checarVirada, 60000);
 
     // Em aba minimizada/segundo plano o navegador congela o setInterval, então
-    // garantimos um refresh assim que a pessoa volta pra aba — é exatamente o
-    // momento em que uma mudança feita no servidor (ex: notificação de horário)
-    // precisa aparecer.
+    // garantimos um refresh assim que a pessoa volta — seja trocando de aba
+    // (visibilitychange) ou só voltando pro navegador via alt-tab, o que não
+    // muda o visibilityState mas dispara o foco da janela (window focus).
+    // É exatamente o momento em que uma mudança feita no servidor (ex:
+    // notificação de horário) precisa aparecer.
     function handleVisibilidade() {
       if (document.visibilityState === 'visible') checarVirada();
     }
 
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', handleVisibilidade);
+      window.addEventListener('focus', checarVirada);
     }
 
     return () => {
       clearInterval(interval);
       if (Platform.OS === 'web' && typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibilidade);
+        window.removeEventListener('focus', checarVirada);
       }
     };
   }, [loading, virarDia, loadData]);
