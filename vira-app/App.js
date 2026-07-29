@@ -147,6 +147,7 @@ function MainApp({ session }) {
             espacos={data.espacos}
             onSetStatus={handleSetStatus}
             onEditTask={setTaskModal}
+            onCreateTarefa={data.createTarefa}
           />
         )}
       </Animated.View>
