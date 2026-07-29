@@ -312,12 +312,14 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   topBarWideKanban: {
-    maxWidth: 1100,
+    maxWidth: '100%',
+    paddingHorizontal: 32,
     paddingTop: 24,
     paddingBottom: 16,
   },
   topBarWideHome: {
-    maxWidth: 720,
+    maxWidth: '100%',
+    paddingHorizontal: 32,
     paddingTop: 24,
     paddingBottom: 16,
   },

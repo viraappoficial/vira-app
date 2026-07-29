@@ -511,7 +511,8 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   scrollContentWide: {
-    maxWidth: 1100,
+    maxWidth: '100%',
+    paddingHorizontal: 32,
   },
   columnsRow: {
     flexDirection: 'row',
