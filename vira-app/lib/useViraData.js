@@ -138,7 +138,7 @@ export function useViraData(userId) {
     const paraAtrasar = tasks.filter(
       (t) => (t.status === 'fazer' || t.status === 'andamento') && t.data_prevista && t.data_prevista < hoje
     );
-    if (paraAtrasar.length === 0) return;
+    if (paraAtrasar.length === 0) return 0;
     setTasks((prev) =>
       prev.map((t) => (paraAtrasar.some((p) => p.id === t.id) ? { ...t, status: 'atrasado' } : t))
     );
@@ -146,6 +146,7 @@ export function useViraData(userId) {
       .from('tarefas')
       .update({ status: 'atrasado' })
       .in('id', paraAtrasar.map((t) => t.id));
+    return paraAtrasar.length;
   }
 
   return {
