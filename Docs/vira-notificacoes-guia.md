@@ -27,21 +27,26 @@ Em Edge Functions → Secrets, adicione:
 
 | Nome | Valor |
 | --- | --- |
-| `VAPID_PUBLIC_KEY` | `BBBFNEY1ocZOls-Ix1ADMqywBQ2-M0QSG8h2fHgEBMzHhZTBcc-EzKwMU632KETdGR3kHQrD1Ne2sOEKyTmFk1E` |
-| `VAPID_PRIVATE_KEY` | `WT5ABMRXWy4oY-Z7VpOm95sW1uSEumAY5LgBTrF1nlo` |
-| `CRON_SECRET` | `a3e63fb3f38b7da5a4b65477cb7b97c50c07ddeb861f8795` |
+| `VAPID_PUBLIC_KEY` | (gerar com `npx web-push generate-vapid-keys` — nunca commitar o valor real aqui) |
+| `VAPID_PRIVATE_KEY` | (idem — só existe no Supabase Dashboard e no seu gerenciador de senhas) |
+| `CRON_SECRET` | (uma string aleatória própria — só existe no Supabase Dashboard e no SQL do cron, nunca neste arquivo) |
 
 (`SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` já existem por padrão em toda Edge Function,
 não precisa configurar.)
 
-A `VAPID_PUBLIC_KEY` também já está embutida no app (`lib/push.js`) — as duas pontas
-precisam bater, então não troque uma sem trocar a outra.
+A `VAPID_PUBLIC_KEY` também precisa estar embutida no app (`lib/push.js`) — as duas pontas
+precisam bater, então não troque uma sem trocar a outra. **Importante:** esses três valores
+são segredos de verdade — nunca cole o valor real deles neste arquivo (ou em qualquer
+arquivo versionado no Git). Guarde-os só no Supabase Dashboard e num gerenciador de senhas.
+Se algum desses valores já foi commitado por engano, ele deve ser considerado comprometido
+e rotacionado (gerar um novo e atualizar em todo lugar), mesmo em repositório privado.
 
 ## 4. Agendar o cron (roda a cada minuto)
 
 No SQL Editor, rode (troque `<SLUG-DA-FUNCAO>` pela URL real que aparecer na tela da
 função — deve ser algo como `enviar-notificacoes`, mas confira, já que já tivemos um caso
-de slug diferente do nome de exibição):
+de slug diferente do nome de exibição — e `<CRON_SECRET>` pelo valor real que você
+configurou no passo 3, sem colar esse valor em nenhum arquivo versionado):
 
 ```sql
 create extension if not exists pg_cron with schema extensions;
@@ -55,7 +60,7 @@ select cron.schedule(
     url := 'https://vpygbkwhfpyhabutgxxl.supabase.co/functions/v1/<SLUG-DA-FUNCAO>',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'x-cron-secret', 'a3e63fb3f38b7da5a4b65477cb7b97c50c07ddeb861f8795'
+      'x-cron-secret', '<CRON_SECRET>'
     ),
     body := '{}'::jsonb
   );

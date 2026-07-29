@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 
 // Chave pública VAPID — segura pra expor no cliente (é assim que Web Push funciona).
 export const VAPID_PUBLIC_KEY =
-  'BBBFNEY1ocZOls-Ix1ADMqywBQ2-M0QSG8h2fHgEBMzHhZTBcc-EzKwMU632KETdGR3kHQrD1Ne2sOEKyTmFk1E';
+  'BGPZa6e613IgL-ihu9-xrF6LYy3DGQ_z-Sa7_sJT4wqD_jf1TULjHoFFJCycAPA254URBdO3PX1T7fIhyX0KZSQ';
 
 export function pushSuportado() {
   return (
