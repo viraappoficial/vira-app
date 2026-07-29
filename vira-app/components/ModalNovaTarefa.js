@@ -7,6 +7,7 @@ import {
   Flag,
   Home as HomeIcon,
   Plus,
+  Repeat,
   Sparkles,
   Trash2,
   X,
@@ -63,6 +64,7 @@ export default function ModalNovaTarefa({
   onUpdate,
   onDelete,
   onSaveModelo,
+  onUpdateModelo,
   onDeleteModelo,
 }) {
   const isEdit = !!task;
@@ -160,6 +162,10 @@ export default function ModalNovaTarefa({
     setSalvandoModelo(false);
   }
 
+  function handleToggleRecorrencia(m) {
+    onUpdateModelo(m.id, { recorrencia: m.recorrencia === 'diaria' ? null : 'diaria' });
+  }
+
   async function handleSalvar() {
     if (!titulo.trim() || saving) return;
     setSaving(true);
@@ -247,6 +253,9 @@ export default function ModalNovaTarefa({
                 <View key={m.id} style={styles.modeloChip}>
                   <Pressable onPress={() => aplicarModelo(m)}>
                     <Text style={styles.modeloChipText}>{m.titulo_padrao}</Text>
+                  </Pressable>
+                  <Pressable onPress={() => handleToggleRecorrencia(m)} hitSlop={6}>
+                    <Repeat size={11} color={m.recorrencia === 'diaria' ? COLORS.accent : COLORS.textSecondary} />
                   </Pressable>
                   <Pressable onPress={() => onDeleteModelo(m.id)} hitSlop={6}>
                     <X size={11} color={COLORS.accent} />

@@ -227,6 +227,7 @@ function MainApp({ session }) {
           if (!error) setTaskModal(undefined);
         }}
         onSaveModelo={data.createModelo}
+        onUpdateModelo={data.updateModelo}
         onDeleteModelo={data.deleteModelo}
       />
 
