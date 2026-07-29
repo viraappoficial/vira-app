@@ -15,20 +15,29 @@ CONTEXTO:
 
 REGRAS:
 - Responda APENAS com um JSON válido, sem nenhum texto antes ou depois, sem markdown, sem explicação.
+- Primeiro decida se o texto descreve UMA tarefa ou VÁRIAS tarefas separadas. É várias somente quando o texto tem mais de uma ação distinta — verbos diferentes, cada um começando uma atividade própria (ex: "ligar pro fornecedor, mandar o relatório, agendar reunião" = 3 tarefas). É UMA tarefa só quando os itens depois da vírgula são tópicos/detalhes da mesma ação, sem verbo novo (ex: "falar com Rebeca sobre convênios PF, cobrança, forma de pagamento" = 1 tarefa, os itens viram descrição). Na dúvida, prefira UMA tarefa só.
+- Responda sempre com "tarefas", uma lista — mesmo quando for só 1 tarefa, a lista tem 1 item.
+- Cada item da lista segue o mesmo formato de tarefa abaixo.
 - "data_prevista" deve estar no formato exato "YYYY-MM-DD" (ex: "2026-07-30"), ou null se o usuário não mencionar data. Resolva expressões relativas ("amanhã", "sexta que vem") usando a data de hoje como referência.
 - "hora" deve estar no formato exato "HH:MM" em 24 horas (ex: "09:00", "14:30"), ou null se o usuário não mencionar horário.
 - Infira o espaço mais provável pelo contexto da frase, usando exatamente um dos nomes da lista de espaços disponíveis. Se não for possível inferir, deixe "espaco" como null.
 - Infira a prioridade como "alta" só se houver urgência explícita (ex: "urgente", "hoje mesmo", "importante"). Caso contrário, use "media".
-- Separe a ação principal dos detalhes: "titulo" é uma versão curta (tipo "Falar com Rebeca"), com quem/o quê central da tarefa, sem data/hora/prioridade dentro do texto. "descricao" leva o resto — os detalhes, tópicos, contexto que a pessoa mencionou (ex: "Convênios PF, cobrança, data de fechamento, forma de pagamento"), como uma lista curta separada por vírgula ou frase corrida, sem repetir o que já virou "titulo". Se não sobrar detalhe nenhum além do título, "descricao" é null.
+- Quando for uma tarefa só: separe a ação principal dos detalhes — "titulo" é uma versão curta (tipo "Falar com Rebeca"), com quem/o quê central da tarefa, sem data/hora/prioridade dentro do texto. "descricao" leva o resto — os detalhes, tópicos, contexto que a pessoa mencionou, como uma lista curta separada por vírgula ou frase corrida, sem repetir o que já virou "titulo". Se não sobrar detalhe nenhum além do título, "descricao" é null.
+- Quando forem várias tarefas: cada uma vira um item com seu próprio "titulo" curto (a ação em si) e "descricao" null, a menos que aquela ação específica tenha um detalhe próprio mencionado.
+- Data/hora/espaço/prioridade só se aplicam ao item que ela pertence — se só uma das tarefas tem horário mencionado, as outras ficam com hora null.
 
 FORMATO DE SAÍDA (exato):
 {
-  "titulo": string,
-  "descricao": string | null,
-  "data_prevista": string | null,
-  "hora": string | null,
-  "espaco": string | null,
-  "prioridade": "baixa" | "media" | "alta"
+  "tarefas": [
+    {
+      "titulo": string,
+      "descricao": string | null,
+      "data_prevista": string | null,
+      "hora": string | null,
+      "espaco": string | null,
+      "prioridade": "baixa" | "media" | "alta"
+    }
+  ]
 }
 
 TEXTO DO USUÁRIO:
@@ -109,12 +118,19 @@ serve(async (req) => {
     return jsonResponse({ error: 'resposta_invalida' }, 503);
   }
 
+  const lista = Array.isArray(estruturado.tarefas) ? estruturado.tarefas : [estruturado];
+  if (lista.length === 0) {
+    return jsonResponse({ error: 'resposta_invalida' }, 503);
+  }
+
   return jsonResponse({
-    titulo: estruturado.titulo ?? null,
-    descricao: estruturado.descricao ?? null,
-    data_prevista: estruturado.data_prevista ?? null,
-    hora: estruturado.hora ?? null,
-    espaco: estruturado.espaco ?? null,
-    prioridade: estruturado.prioridade ?? 'media',
+    tarefas: lista.map((t: any) => ({
+      titulo: t.titulo ?? null,
+      descricao: t.descricao ?? null,
+      data_prevista: t.data_prevista ?? null,
+      hora: t.hora ?? null,
+      espaco: t.espaco ?? null,
+      prioridade: t.prioridade ?? 'media',
+    })),
   });
 });
