@@ -19,6 +19,10 @@ import HomeScreen from './screens/HomeScreen';
 import KanbanScreen from './screens/KanbanScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 
+function capitalize(text) {
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+}
+
 function MainApp({ session }) {
   const [tela, setTela] = useState('home');
   const [taskModal, setTaskModal] = useState(undefined); // undefined = fechado, null = criar, task = editar
@@ -29,7 +33,7 @@ function MainApp({ session }) {
   const [confettiOrigin, setConfettiOrigin] = useState(null);
   const [virarDiaToast, setVirarDiaToast] = useState(null);
   const [selectedDate, setSelectedDate] = useState(todayIso());
-  const userName = session.user.email.split('@')[0];
+  const userName = session.user.user_metadata?.nome?.trim() || capitalize(session.user.email.split('@')[0]);
   const data = useViraData(session.user.id);
   const onboardingKey = `vira_onboarding_seen_${session.user.id}`;
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -77,6 +81,10 @@ function MainApp({ session }) {
     for (const titulo of tarefasTexto) {
       await data.createTarefa({ titulo, espaco_id: null, prioridade: 'media', hora: null });
     }
+  }
+
+  async function handleSaveNome(nome) {
+    await supabase.auth.updateUser({ data: { nome } });
   }
 
   async function handleOnboardingDone() {
@@ -199,6 +207,8 @@ function MainApp({ session }) {
       <ModalEspacos
         visible={espacosListVisible}
         espacosList={data.espacosList}
+        nome={userName}
+        onSaveNome={handleSaveNome}
         onClose={() => setEspacosListVisible(false)}
         onSelect={(e) => {
           setEspacosListVisible(false);

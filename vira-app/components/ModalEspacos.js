@@ -1,9 +1,17 @@
 import { Home as HomeIcon, Plus, X } from 'lucide-react-native';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { COLORS } from '../lib/theme';
 
-export default function ModalEspacos({ visible, espacosList, onClose, onSelect, onNew }) {
+export default function ModalEspacos({ visible, espacosList, nome, onSaveNome, onClose, onSelect, onNew }) {
+  const [nomeInput, setNomeInput] = useState(nome || '');
+
   if (!visible) return null;
+
+  function handleBlurNome() {
+    const trimmed = nomeInput.trim();
+    if (trimmed && trimmed !== nome) onSaveNome(trimmed);
+  }
 
   return (
     <View style={styles.overlay}>
@@ -14,6 +22,18 @@ export default function ModalEspacos({ visible, espacosList, onClose, onSelect, 
           <Pressable onPress={onClose} hitSlop={8}>
             <X size={18} color={COLORS.textSecondary} />
           </Pressable>
+        </View>
+
+        <View style={styles.nomeField}>
+          <Text style={styles.nomeLabel}>Como podemos te chamar?</Text>
+          <TextInput
+            value={nomeInput}
+            onChangeText={setNomeInput}
+            onBlur={handleBlurNome}
+            placeholder="Seu nome"
+            placeholderTextColor={COLORS.textSecondary}
+            style={styles.nomeInput}
+          />
         </View>
 
         {espacosList.length === 0 ? (
@@ -80,6 +100,24 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 13,
     marginBottom: 16,
+  },
+  nomeField: {
+    marginBottom: 16,
+  },
+  nomeLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginBottom: 6,
+  },
+  nomeInput: {
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: COLORS.text,
   },
   list: {
     gap: 8,
