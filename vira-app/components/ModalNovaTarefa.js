@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import DatePickerPopover from './DatePickerPopover';
+import ViraLogoSpinner from './ViraLogoSpinner';
 import { formatDiaCurto, todayIso } from '../lib/calendario';
 import { pickRandom, TITULO_PLACEHOLDERS } from '../lib/copy';
 import { chamarSecretario } from '../lib/secretario';
@@ -219,7 +220,7 @@ export default function ModalNovaTarefa({
               style={[styles.secretarioButton, secretarioLoading && styles.buttonDisabled]}
             >
               {secretarioLoading ? (
-                <ActivityIndicator size="small" color={COLORS.accent} />
+                <ViraLogoSpinner size={14} />
               ) : (
                 <Sparkles size={13} color={COLORS.accent} />
               )}
