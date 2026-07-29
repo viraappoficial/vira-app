@@ -33,6 +33,7 @@ export default function AuthScreen() {
   const [status, setStatus] = useState('idle'); // idle | enviando | erro
   const [errorMsg, setErrorMsg] = useState('');
   const [contaCriadaAguardandoEmail, setContaCriadaAguardandoEmail] = useState(false);
+  const [recuperacaoEnviada, setRecuperacaoEnviada] = useState(false);
 
   const isCriar = modo === 'criar';
 
@@ -80,6 +81,20 @@ export default function AuthScreen() {
     }
   }
 
+  async function handleEsqueciSenha() {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setStatus('erro');
+      setErrorMsg('Escreve seu e-mail ali em cima primeiro.');
+      return;
+    }
+    setStatus('enviando');
+    setErrorMsg('');
+    await supabase.auth.resetPasswordForEmail(trimmedEmail);
+    setRecuperacaoEnviada(true);
+    setStatus('idle');
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -94,6 +109,14 @@ export default function AuthScreen() {
           <View style={styles.sentBox}>
             <Text style={styles.sentText}>Confirma seu e-mail pra ativar a conta.</Text>
             <Text style={styles.sentSubtext}>Te mandamos um link de confirmação — depois é só entrar normal.</Text>
+          </View>
+        ) : recuperacaoEnviada ? (
+          <View style={styles.sentBox}>
+            <Text style={styles.sentText}>Te mandamos um link pro seu e-mail.</Text>
+            <Text style={styles.sentSubtext}>Abre ele pra definir uma senha nova.</Text>
+            <Pressable onPress={() => setRecuperacaoEnviada(false)} style={styles.trocarModoButton}>
+              <Text style={styles.trocarModoText}>Voltar</Text>
+            </Pressable>
           </View>
         ) : (
           <>
@@ -154,6 +177,12 @@ export default function AuthScreen() {
                 {isCriar ? 'Já tem conta? Entrar' : 'Não tem conta? Criar conta'}
               </Text>
             </Pressable>
+
+            {!isCriar && (
+              <Pressable onPress={handleEsqueciSenha} style={styles.trocarModoButton}>
+                <Text style={styles.trocarModoText}>Esqueci minha senha</Text>
+              </Pressable>
+            )}
           </>
         )}
       </View>
