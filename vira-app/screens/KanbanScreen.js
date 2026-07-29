@@ -1,10 +1,11 @@
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock, Eye, EyeOff } from 'lucide-react-native';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock, Eye, EyeOff, Sparkles } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import EspacoCapsula from '../components/EspacoCapsula';
 import ModalHistorico from '../components/ModalHistorico';
+import ModalQuebrarTarefa from '../components/ModalQuebrarTarefa';
 import ViraLogo from '../components/ViraLogo';
 import { todayIso } from '../lib/calendario';
 import { EMPTY_MESSAGES, pickRandom } from '../lib/copy';
@@ -54,7 +55,7 @@ function rawCardStyle(isDragging) {
   };
 }
 
-function CardContent({ task, espaco }) {
+function CardContent({ task, espaco, onQuebrar }) {
   return (
     <>
       <View style={styles.cardTitleRow}>
@@ -79,15 +80,24 @@ function CardContent({ task, espaco }) {
         {task.hora && <Text style={styles.cardHora}>{task.hora.slice(0, 5)}</Text>}
       </View>
       {task.vezes_adiada >= 3 && (
-        <Text style={styles.nudgeText}>
-          Adiada {task.vezes_adiada}x — talvez valha dividir ela em partes menores
-        </Text>
+        <Pressable
+          style={styles.nudgeRow}
+          onPress={(e) => {
+            e.stopPropagation?.();
+            onQuebrar?.(task);
+          }}
+        >
+          <Sparkles size={11} color={COLORS.atrasado} />
+          <Text style={styles.nudgeText}>
+            Adiada {task.vezes_adiada}x — toque pra ver como dividir
+          </Text>
+        </Pressable>
       )}
     </>
   );
 }
 
-function NativeDraggableCard({ task, espaco, onEditTask, onDragStart, onDragUpdate, onDragEnd }) {
+function NativeDraggableCard({ task, espaco, onEditTask, onQuebrar, onDragStart, onDragUpdate, onDragEnd }) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const scale = useSharedValue(1);
@@ -136,13 +146,13 @@ function NativeDraggableCard({ task, espaco, onEditTask, onDragStart, onDragUpda
   return (
     <GestureDetector gesture={gesture}>
       <Animated.View style={[styles.card, styles.cardShadow, animatedStyle]}>
-        <CardContent task={task} espaco={espaco} />
+        <CardContent task={task} espaco={espaco} onQuebrar={onQuebrar} />
       </Animated.View>
     </GestureDetector>
   );
 }
 
-export default function KanbanScreen({ tasks, espacos, onSetStatus, onEditTask }) {
+export default function KanbanScreen({ tasks, espacos, onSetStatus, onEditTask, onCreateTarefa }) {
   const [dragOver, setDragOver] = useState(null);
   const [touchDrag, setTouchDrag] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
@@ -151,6 +161,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onEditTask }
   const [nativeDraggingId, setNativeDraggingId] = useState(null);
   const [nativeDragOver, setNativeDragOver] = useState(null);
   const [historicoVisible, setHistoricoVisible] = useState(false);
+  const [quebrarTask, setQuebrarTask] = useState(null);
   const dragIdRef = useRef(null);
   const touchDragRef = useRef(null);
   const columnRefs = useRef({});
@@ -393,7 +404,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onEditTask }
                         onClick={() => onEditTask(t)}
                         style={rawCardStyle(isBeingDragged)}
                       >
-                        <CardContent task={t} espaco={espaco} />
+                        <CardContent task={t} espaco={espaco} onQuebrar={setQuebrarTask} />
                       </div>
                     );
                   }
@@ -404,6 +415,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onEditTask }
                       task={t}
                       espaco={espaco}
                       onEditTask={onEditTask}
+                      onQuebrar={setQuebrarTask}
                       onDragStart={handleNativeDragStart}
                       onDragUpdate={handleNativeDragUpdate}
                       onDragEnd={handleNativeDragEnd}
@@ -463,6 +475,24 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onEditTask }
         onClose={() => setHistoricoVisible(false)}
         onRestore={(id) => onSetStatus(id, 'fazer')}
         onEditTask={onEditTask}
+      />
+
+      <ModalQuebrarTarefa
+        visible={!!quebrarTask}
+        task={quebrarTask}
+        onClose={() => setQuebrarTask(null)}
+        onConfirm={async (titulos) => {
+          for (const titulo of titulos) {
+            await onCreateTarefa({
+              titulo,
+              espaco_id: quebrarTask.espaco_id,
+              prioridade: quebrarTask.prioridade,
+              hora: null,
+              data_prevista: todayIso(),
+            });
+          }
+          setQuebrarTask(null);
+        }}
       />
     </View>
   );
@@ -609,11 +639,16 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 11,
   },
+  nudgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
   nudgeText: {
     color: COLORS.atrasado,
     fontSize: 10,
     fontStyle: 'italic',
-    marginTop: 6,
   },
   ghostCard: {
     position: 'fixed',
