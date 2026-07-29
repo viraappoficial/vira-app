@@ -36,6 +36,41 @@ Deno.serve(async (req) => {
   const horaAtual = paraHHMM(agora);
   const horaMinima = paraHHMM(new Date(agora.getTime() - JANELA_MIN * 60 * 1000));
 
+  // Atalhos marcados como recorrentes: cria a tarefa do dia se ainda não existir uma
+  // vinda desse mesmo atalho pra hoje (evita duplicar se o cron rodar mais de uma vez).
+  const { data: modelosRecorrentes } = await supabase
+    .from('modelos')
+    .select('id, usuario_id, titulo_padrao, espaco_id, hora_padrao')
+    .eq('recorrencia', 'diaria');
+
+  if (modelosRecorrentes && modelosRecorrentes.length > 0) {
+    const { data: tarefasDeHojeDeModelos } = await supabase
+      .from('tarefas')
+      .select('origem_modelo_id')
+      .eq('data_prevista', hoje)
+      .in(
+        'origem_modelo_id',
+        modelosRecorrentes.map((m) => m.id)
+      );
+
+    const jaCriadosHoje = new Set((tarefasDeHojeDeModelos || []).map((t) => t.origem_modelo_id));
+    const paraCriar = modelosRecorrentes.filter((m) => !jaCriadosHoje.has(m.id));
+
+    if (paraCriar.length > 0) {
+      await supabase.from('tarefas').insert(
+        paraCriar.map((m) => ({
+          usuario_id: m.usuario_id,
+          titulo: m.titulo_padrao,
+          espaco_id: m.espaco_id,
+          hora: m.hora_padrao,
+          status: 'fazer',
+          data_prevista: hoje,
+          origem_modelo_id: m.id,
+        }))
+      );
+    }
+  }
+
   const [{ data: tarefasNoHorario, error: erroHorario }, { data: tarefasPresas, error: erroPresas }] =
     await Promise.all([
       supabase

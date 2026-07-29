@@ -137,14 +137,21 @@ export function useViraData(userId) {
     return { error };
   }
 
-  async function createModelo({ titulo_padrao, espaco_id, hora_padrao }) {
+  async function createModelo({ titulo_padrao, espaco_id, hora_padrao, recorrencia }) {
     const { data, error } = await supabase
       .from('modelos')
-      .insert({ usuario_id: userId, titulo_padrao, espaco_id, hora_padrao: hora_padrao || null })
+      .insert({ usuario_id: userId, titulo_padrao, espaco_id, hora_padrao: hora_padrao || null, recorrencia: recorrencia || null })
       .select()
       .single();
     if (!error) setModelos((prev) => [...prev, data]);
     return { data, error };
+  }
+
+  async function updateModelo(modeloId, payload) {
+    setModelos((prev) => prev.map((m) => (m.id === modeloId ? { ...m, ...payload } : m)));
+    const { error } = await supabase.from('modelos').update(payload).eq('id', modeloId);
+    if (error) await loadData();
+    return { error };
   }
 
   async function deleteModelo(modeloId) {
@@ -240,6 +247,7 @@ export function useViraData(userId) {
     updateEspaco,
     deleteEspaco,
     createModelo,
+    updateModelo,
     deleteModelo,
     setTaskStatus,
     virarDia,
