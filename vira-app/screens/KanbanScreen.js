@@ -1,10 +1,12 @@
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import EspacoCapsula from '../components/EspacoCapsula';
 import ViraLogo from '../components/ViraLogo';
 import { EMPTY_MESSAGES, pickRandom } from '../lib/copy';
-import { COLORS } from '../lib/theme';
+import { COLORS, PRIORIDADE_COLORS, PRIORIDADE_LABELS } from '../lib/theme';
 
 const STATUS_ORDER = ['fazer', 'andamento', 'concluido', 'atrasado'];
 const STATUS_CONFIG = {
@@ -52,9 +54,18 @@ function rawCardStyle(isDragging) {
 function CardContent({ task, espaco }) {
   return (
     <>
-      <Text style={styles.cardTitle} numberOfLines={1}>
-        {task.titulo}
-      </Text>
+      <View style={styles.cardTitleRow}>
+        <View
+          style={[
+            styles.priorityDot,
+            { backgroundColor: PRIORIDADE_COLORS[task.prioridade] || PRIORIDADE_COLORS.media },
+          ]}
+          accessibilityLabel={PRIORIDADE_LABELS[task.prioridade]}
+        />
+        <Text style={styles.cardTitle} numberOfLines={1}>
+          {task.titulo}
+        </Text>
+      </View>
       {task.descricao && (
         <Text style={styles.cardDescricao} numberOfLines={1}>
           {task.descricao}
@@ -68,13 +79,72 @@ function CardContent({ task, espaco }) {
   );
 }
 
+function NativeDraggableCard({ task, espaco, onEditTask, onDragStart, onDragUpdate, onDragEnd }) {
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const dragging = useSharedValue(false);
+
+  const pan = Gesture.Pan()
+    .activateAfterLongPress(150)
+    .onStart(() => {
+      dragging.value = true;
+      scale.value = withSpring(1.04);
+      runOnJS(onDragStart)(task.id);
+    })
+    .onUpdate((e) => {
+      translateX.value = e.translationX;
+      translateY.value = e.translationY;
+      runOnJS(onDragUpdate)(e.absoluteY);
+    })
+    .onEnd((e) => {
+      runOnJS(onDragEnd)(task.id, e.absoluteX, e.absoluteY);
+    })
+    .onFinalize(() => {
+      translateX.value = withSpring(0);
+      translateY.value = withSpring(0);
+      scale.value = withSpring(1);
+      dragging.value = false;
+    });
+
+  const tap = Gesture.Tap().onEnd(() => {
+    runOnJS(onEditTask)(task);
+  });
+
+  const gesture = Gesture.Race(pan, tap);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+      { rotate: dragging.value ? '-2deg' : '0deg' },
+    ],
+    zIndex: dragging.value ? 100 : 1,
+    borderColor: dragging.value ? COLORS.accent : COLORS.border,
+    shadowOpacity: dragging.value ? 0.35 : 0,
+  }));
+
+  return (
+    <GestureDetector gesture={gesture}>
+      <Animated.View style={[styles.card, styles.cardShadow, animatedStyle]}>
+        <CardContent task={task} espaco={espaco} />
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
 export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, onEditTask }) {
   const [dragOver, setDragOver] = useState(null);
   const [touchDrag, setTouchDrag] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
   const [recolhidas, setRecolhidas] = useState({ concluido: true });
+  const [nativeDraggingId, setNativeDraggingId] = useState(null);
+  const [nativeDragOver, setNativeDragOver] = useState(null);
   const dragIdRef = useRef(null);
   const touchDragRef = useRef(null);
+  const columnRefs = useRef({});
+  const columnRangesRef = useRef({});
   const { width } = useWindowDimensions();
   const isWide = IS_WEB && width >= 720;
 
@@ -127,6 +197,40 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
     setRecolhidas((prev) => ({ ...prev, [status]: !prev[status] }));
   }
 
+  function measureColumn(status) {
+    const node = columnRefs.current[status];
+    if (!node || !node.measureInWindow) return;
+    node.measureInWindow((x, y, w, h) => {
+      columnRangesRef.current[status] = { top: y, bottom: y + h };
+    });
+  }
+
+  function statusAtY(y) {
+    for (const s of STATUS_ORDER) {
+      const range = columnRangesRef.current[s];
+      if (range && y >= range.top && y <= range.bottom) return s;
+    }
+    return null;
+  }
+
+  const handleNativeDragStart = useCallback((taskId) => {
+    setNativeDraggingId(taskId);
+  }, []);
+
+  const handleNativeDragUpdate = useCallback((absoluteY) => {
+    setNativeDragOver(statusAtY(absoluteY));
+  }, []);
+
+  const handleNativeDragEnd = useCallback(
+    (taskId, absoluteX, absoluteY) => {
+      const status = statusAtY(absoluteY);
+      if (status) onSetStatus(taskId, status, { x: absoluteX, y: absoluteY });
+      setNativeDraggingId(null);
+      setNativeDragOver(null);
+    },
+    [onSetStatus]
+  );
+
   function handleDragEnd() {
     setDraggingId(null);
     setDragOver(null);
@@ -138,7 +242,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
     setDragOver(null);
     setDraggingId(null);
     const id = dragIdRef.current;
-    if (id) onSetStatus(id, status);
+    if (id) onSetStatus(id, status, { x: e.clientX, y: e.clientY });
     dragIdRef.current = null;
   }
 
@@ -168,7 +272,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
       const { id, x, y } = touchDragRef.current;
       const el = document.elementFromPoint(x, y);
       const col = el && el.closest ? el.closest('[data-status]') : null;
-      if (col) onSetStatus(id, col.getAttribute('data-status'));
+      if (col) onSetStatus(id, col.getAttribute('data-status'), { x, y });
       touchDragRef.current = null;
       setTouchDrag(null);
       setDragOver(null);
@@ -184,7 +288,10 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={[styles.scrollContent, isWide && styles.scrollContentWide]}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, isWide && styles.scrollContentWide]}
+        scrollEnabled={!nativeDraggingId}
+      >
         <View style={styles.headerRow}>
           <Text style={styles.title}>Board</Text>
           <Pressable style={styles.virarDiaButton} onPress={onVirarDia}>
@@ -192,7 +299,7 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
           </Pressable>
         </View>
 
-        {!IS_WEB && <Text style={styles.hintText}>Toque num card pra editar.</Text>}
+        {!IS_WEB && <Text style={styles.hintText}>Segure um card pra arrastar, toque pra editar.</Text>}
 
         <View style={isWide ? styles.columnsRow : undefined}>
         {STATUS_ORDER.map((s) => {
@@ -239,9 +346,15 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
                   }
 
                   return (
-                    <Pressable key={t.id} style={styles.card} onPress={() => onEditTask(t)}>
-                      <CardContent task={t} espaco={espaco} />
-                    </Pressable>
+                    <NativeDraggableCard
+                      key={t.id}
+                      task={t}
+                      espaco={espaco}
+                      onEditTask={onEditTask}
+                      onDragStart={handleNativeDragStart}
+                      onDragUpdate={handleNativeDragUpdate}
+                      onDragEnd={handleNativeDragEnd}
+                    />
                   );
                 })
               )}
@@ -267,7 +380,14 @@ export default function KanbanScreen({ tasks, espacos, onSetStatus, onVirarDia, 
           }
 
           return (
-            <View key={s} style={styles.column}>
+            <View
+              key={s}
+              ref={(node) => {
+                columnRefs.current[s] = node;
+              }}
+              onLayout={() => measureColumn(s)}
+              style={[styles.column, nativeDragOver === s && styles.columnOver]}
+            >
               {columnInner}
             </View>
           );
@@ -342,6 +462,10 @@ const styles = StyleSheet.create({
     padding: 12,
     marginTop: 12,
   },
+  columnOver: {
+    backgroundColor: COLORS.accentSoft,
+    borderColor: COLORS.accent,
+  },
   columnHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -376,11 +500,29 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 6,
   },
+  cardShadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+    minWidth: 0,
+  },
+  priorityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
   cardTitle: {
     color: COLORS.text,
     fontSize: 14,
     fontWeight: '500',
-    marginBottom: 4,
+    flexShrink: 1,
   },
   cardDescricao: {
     color: COLORS.textSecondary,

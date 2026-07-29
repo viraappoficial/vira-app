@@ -1,10 +1,10 @@
-import { AlertTriangle, CheckCircle2, Circle, Clock } from 'lucide-react-native';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import EspacoCapsula from '../components/EspacoCapsula';
 import ViraLogo from '../components/ViraLogo';
 import { COMPLETE_MESSAGES, EMPTY_MESSAGES, GREETINGS, SUBTITLES, pickRandom } from '../lib/copy';
-import { COLORS } from '../lib/theme';
+import { COLORS, PRIORIDADE_COLORS, PRIORIDADE_LABELS } from '../lib/theme';
 
 const STATUS_CONFIG = {
   fazer: { label: 'A fazer', color: COLORS.fazer, Icon: Circle },
@@ -16,6 +16,7 @@ const STATUS_CONFIG = {
 export default function HomeScreen({ userName, tasks, espacos, refreshing, onRefresh, onToggle, onEditTask }) {
   const [justCompletedId, setJustCompletedId] = useState(null);
   const [toast, setToast] = useState(null);
+  const [showConcluidas, setShowConcluidas] = useState(false);
   const { width } = useWindowDimensions();
   const isWide = Platform.OS === 'web' && width >= 720;
 
@@ -41,13 +42,75 @@ export default function HomeScreen({ userName, tasks, espacos, refreshing, onRef
     [pendentesList]
   );
 
-  async function handleToggle(task) {
+  const concluidasList = useMemo(
+    () =>
+      tasks
+        .filter((t) => t.status === 'concluido')
+        .sort((a, b) => (b.concluido_em || '').localeCompare(a.concluido_em || '')),
+    [tasks]
+  );
+
+  async function handleToggle(task, event) {
     if (task.status !== 'concluido') {
       setJustCompletedId(task.id);
       setToast(pickRandom(COMPLETE_MESSAGES));
       setTimeout(() => setToast(null), 1600);
     }
-    await onToggle(task);
+    const origin = event?.nativeEvent
+      ? { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY }
+      : null;
+    await onToggle(task, origin);
+  }
+
+  function renderTaskRow(item, { concluida } = {}) {
+    const cfg = STATUS_CONFIG[item.status];
+    const espaco = espacos[item.espaco_id];
+    const isJustCompleted = item.id === justCompletedId;
+    return (
+      <View
+        key={item.id}
+        style={[
+          styles.taskRow,
+          {
+            borderColor: item.status === 'atrasado' ? `${COLORS.atrasado}55` : COLORS.border,
+            transform: [{ scale: isJustCompleted ? 1.02 : 1 }],
+          },
+          concluida && styles.taskRowConcluida,
+        ]}
+      >
+        <Pressable onPress={(e) => handleToggle(item, e)} hitSlop={8}>
+          <cfg.Icon size={22} color={cfg.color} strokeWidth={2} />
+        </Pressable>
+        <Pressable style={styles.taskInfo} onPress={() => onEditTask(item)}>
+          <View style={styles.taskTitleRow}>
+            <View
+              style={[
+                styles.priorityDot,
+                { backgroundColor: PRIORIDADE_COLORS[item.prioridade] || PRIORIDADE_COLORS.media },
+              ]}
+              accessibilityLabel={PRIORIDADE_LABELS[item.prioridade]}
+            />
+            <Text style={[styles.taskTitle, concluida && styles.taskTitleConcluida]} numberOfLines={1}>
+              {item.titulo}
+            </Text>
+          </View>
+          {item.descricao && (
+            <Text style={styles.taskDescricao} numberOfLines={1}>
+              {item.descricao}
+            </Text>
+          )}
+          <View style={styles.taskMeta}>
+            <EspacoCapsula espaco={espaco} small />
+            {item.hora && <Text style={styles.taskHora}>{item.hora.slice(0, 5)}</Text>}
+          </View>
+        </Pressable>
+        {concluida && (
+          <Pressable onPress={(e) => handleToggle(item, e)} hitSlop={8} style={styles.restaurarButton}>
+            <Text style={styles.restaurarText}>Restaurar</Text>
+          </Pressable>
+        )}
+      </View>
+    );
   }
 
   return (
@@ -87,40 +150,25 @@ export default function HomeScreen({ userName, tasks, espacos, refreshing, onRef
             <Text style={styles.emptyText}>{emptyMsg}</Text>
           </View>
         }
-        renderItem={({ item }) => {
-          const cfg = STATUS_CONFIG[item.status];
-          const espaco = espacos[item.espaco_id];
-          const isJustCompleted = item.id === justCompletedId;
-          return (
-            <View
-              style={[
-                styles.taskRow,
-                {
-                  borderColor: item.status === 'atrasado' ? `${COLORS.atrasado}55` : COLORS.border,
-                  transform: [{ scale: isJustCompleted ? 1.02 : 1 }],
-                },
-              ]}
-            >
-              <Pressable onPress={() => handleToggle(item)} hitSlop={8}>
-                <cfg.Icon size={22} color={cfg.color} strokeWidth={2} />
-              </Pressable>
-              <Pressable style={styles.taskInfo} onPress={() => onEditTask(item)}>
-                <Text style={styles.taskTitle} numberOfLines={1}>
-                  {item.titulo}
+        renderItem={({ item }) => renderTaskRow(item)}
+        ListFooterComponent={
+          concluidasList.length > 0 ? (
+            <View style={styles.concluidasSection}>
+              <Pressable style={styles.concluidasToggle} onPress={() => setShowConcluidas((v) => !v)}>
+                <CheckCircle2 size={14} color={COLORS.textSecondary} />
+                <Text style={styles.concluidasToggleText}>
+                  {showConcluidas ? 'Esconder concluídas' : `Ver concluídas (${concluidasList.length})`}
                 </Text>
-                {item.descricao && (
-                  <Text style={styles.taskDescricao} numberOfLines={1}>
-                    {item.descricao}
-                  </Text>
+                {showConcluidas ? (
+                  <ChevronDown size={14} color={COLORS.textSecondary} />
+                ) : (
+                  <ChevronRight size={14} color={COLORS.textSecondary} />
                 )}
-                <View style={styles.taskMeta}>
-                  <EspacoCapsula espaco={espaco} small />
-                  {item.hora && <Text style={styles.taskHora}>{item.hora.slice(0, 5)}</Text>}
-                </View>
               </Pressable>
+              {showConcluidas && concluidasList.map((item) => renderTaskRow(item, { concluida: true }))}
             </View>
-          );
-        }}
+          ) : null
+        }
       />
 
       {toast && (
@@ -208,11 +256,23 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  taskTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+    minWidth: 0,
+  },
+  priorityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
   taskTitle: {
     color: COLORS.text,
     fontSize: 14,
     fontWeight: '500',
-    marginBottom: 4,
+    flexShrink: 1,
   },
   taskDescricao: {
     color: COLORS.textSecondary,
@@ -227,6 +287,38 @@ const styles = StyleSheet.create({
   taskHora: {
     color: COLORS.textSecondary,
     fontSize: 11,
+  },
+  taskRowConcluida: {
+    opacity: 0.6,
+  },
+  taskTitleConcluida: {
+    textDecorationLine: 'line-through',
+    color: COLORS.textSecondary,
+  },
+  restaurarButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  restaurarText: {
+    color: COLORS.accent,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  concluidasSection: {
+    marginTop: 8,
+  },
+  concluidasToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginBottom: 4,
+  },
+  concluidasToggleText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
+    flex: 1,
   },
   toast: {
     position: 'absolute',
