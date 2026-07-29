@@ -1,16 +1,43 @@
-import { Home as HomeIcon, Plus, X } from 'lucide-react-native';
-import { useState } from 'react';
+import { Bell, BellOff, Home as HomeIcon, Plus, X } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ativarNotificacoes, desativarNotificacoes, notificacoesAtivas, pushSuportado, statusPermissao } from '../lib/push';
 import { COLORS } from '../lib/theme';
 
-export default function ModalEspacos({ visible, espacosList, nome, onSaveNome, onClose, onSelect, onNew }) {
+export default function ModalEspacos({ visible, espacosList, nome, onSaveNome, userId, onClose, onSelect, onNew }) {
   const [nomeInput, setNomeInput] = useState(nome || '');
+  const [notifAtiva, setNotifAtiva] = useState(false);
+  const [notifCarregando, setNotifCarregando] = useState(false);
+  const [notifErro, setNotifErro] = useState(null);
+
+  useEffect(() => {
+    if (!visible || !pushSuportado()) return;
+    notificacoesAtivas().then(setNotifAtiva);
+  }, [visible]);
 
   if (!visible) return null;
 
   function handleBlurNome() {
     const trimmed = nomeInput.trim();
     if (trimmed && trimmed !== nome) onSaveNome(trimmed);
+  }
+
+  async function handleToggleNotif() {
+    setNotifErro(null);
+    setNotifCarregando(true);
+    try {
+      if (notifAtiva) {
+        await desativarNotificacoes();
+        setNotifAtiva(false);
+      } else {
+        await ativarNotificacoes(userId);
+        setNotifAtiva(true);
+      }
+    } catch (err) {
+      setNotifErro(err.message);
+    } finally {
+      setNotifCarregando(false);
+    }
   }
 
   return (
@@ -35,6 +62,32 @@ export default function ModalEspacos({ visible, espacosList, nome, onSaveNome, o
             style={styles.nomeInput}
           />
         </View>
+
+        {pushSuportado() && (
+          <View style={styles.notifField}>
+            <Pressable style={styles.notifRow} onPress={handleToggleNotif} disabled={notifCarregando}>
+              {notifAtiva ? (
+                <Bell size={16} color={COLORS.accent} />
+              ) : (
+                <BellOff size={16} color={COLORS.textSecondary} />
+              )}
+              <View style={styles.notifTextBox}>
+                <Text style={styles.notifLabel}>Notificações de horário</Text>
+                <Text style={styles.notifSubtext}>
+                  {statusPermissao() === 'denied'
+                    ? 'Bloqueadas no navegador — libere nas configurações do site pra ativar.'
+                    : notifAtiva
+                    ? 'Ativadas neste dispositivo.'
+                    : 'Avisa quando bater o horário de uma tarefa.'}
+                </Text>
+              </View>
+              <View style={[styles.notifSwitch, notifAtiva && styles.notifSwitchOn]}>
+                <View style={[styles.notifKnob, notifAtiva && styles.notifKnobOn]} />
+              </View>
+            </Pressable>
+            {notifErro && <Text style={styles.notifErro}>{notifErro}</Text>}
+          </View>
+        )}
 
         {espacosList.length === 0 ? (
           <Text style={styles.emptyText}>Nenhum espaço ainda — crie o primeiro abaixo.</Text>
@@ -118,6 +171,59 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     color: COLORS.text,
+  },
+  notifField: {
+    marginBottom: 16,
+  },
+  notifRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  notifTextBox: {
+    flex: 1,
+    minWidth: 0,
+  },
+  notifLabel: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  notifSubtext: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  notifSwitch: {
+    width: 36,
+    height: 20,
+    borderRadius: 999,
+    backgroundColor: COLORS.border,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  notifSwitchOn: {
+    backgroundColor: COLORS.accent,
+  },
+  notifKnob: {
+    width: 16,
+    height: 16,
+    borderRadius: 999,
+    backgroundColor: COLORS.text,
+  },
+  notifKnobOn: {
+    transform: [{ translateX: 16 }],
+  },
+  notifErro: {
+    color: COLORS.atrasado,
+    fontSize: 11,
+    marginTop: 6,
   },
   list: {
     gap: 8,

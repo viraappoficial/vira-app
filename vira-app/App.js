@@ -13,6 +13,7 @@ import { useViraData } from './lib/useViraData';
 import { supabase } from './lib/supabase';
 import { todayIso } from './lib/calendario';
 import { VIRAR_DIA_MESSAGES, pickRandom } from './lib/copy';
+import { registrarServiceWorker } from './lib/push';
 import { COLORS } from './lib/theme';
 import AuthScreen from './screens/AuthScreen';
 import HomeScreen from './screens/HomeScreen';
@@ -44,6 +45,10 @@ function MainApp({ session }) {
   useEffect(() => {
     AsyncStorage.getItem(onboardingKey).then((v) => setOnboardingSeen(!!v));
   }, [onboardingKey]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') registrarServiceWorker().catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (data.diaViradoCount === 0) return;
@@ -210,6 +215,7 @@ function MainApp({ session }) {
         espacosList={data.espacosList}
         nome={userName}
         onSaveNome={handleSaveNome}
+        userId={session.user.id}
         onClose={() => setEspacosListVisible(false)}
         onSelect={(e) => {
           setEspacosListVisible(false);
