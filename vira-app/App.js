@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { Home as HomeIcon, LayoutGrid, Plus, Settings } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
@@ -31,27 +30,32 @@ function MainApp({ session }) {
   const [taskModal, setTaskModal] = useState(undefined); // undefined = fechado, null = criar, task = editar
   const [espacosListVisible, setEspacosListVisible] = useState(false);
   const [espacoModal, setEspacoModal] = useState(undefined); // undefined = fechado, null = criar, espaco = editar
-  const [onboardingSeen, setOnboardingSeen] = useState(undefined);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
   const [confettiOrigin, setConfettiOrigin] = useState(null);
   const [virarDiaToast, setVirarDiaToast] = useState(null);
   const [selectedDate, setSelectedDate] = useState(todayIso());
   const userName = session.user.user_metadata?.nome?.trim() || capitalize(session.user.email.split('@')[0]);
   const areaAtuacao = session.user.user_metadata?.area_atuacao?.trim() || null;
+  const jaTinhaOnboarding = !!session.user.user_metadata?.onboarding_concluido;
   const data = useViraData(session.user.id);
-  const onboardingKey = `vira_onboarding_seen_${session.user.id}`;
+  // Contas que já usavam o Vira antes desse flag existir têm espaços criados —
+  // nesse caso marca como visto em silêncio, sem mostrar o onboarding de novo.
+  const contaJaTinhaUso = !data.loading && data.espacosList.length > 0;
+  const onboardingSeen = jaTinhaOnboarding || contaJaTinhaUso;
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const { width } = useWindowDimensions();
   const isWide = Platform.OS === 'web' && width >= 720;
 
   useEffect(() => {
-    AsyncStorage.getItem(onboardingKey).then((v) => setOnboardingSeen(!!v));
-  }, [onboardingKey]);
-
-  useEffect(() => {
     if (Platform.OS === 'web') registrarServiceWorker().catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!jaTinhaOnboarding && contaJaTinhaUso) {
+      supabase.auth.updateUser({ data: { onboarding_concluido: true } });
+    }
+  }, [jaTinhaOnboarding, contaJaTinhaUso]);
 
   useEffect(() => {
     if (data.diaViradoCount === 0) return;
@@ -109,11 +113,10 @@ function MainApp({ session }) {
   }
 
   async function handleOnboardingDone() {
-    await AsyncStorage.setItem(onboardingKey, '1');
-    setOnboardingSeen(true);
+    await supabase.auth.updateUser({ data: { onboarding_concluido: true } });
   }
 
-  if (data.loading || onboardingSeen === undefined) {
+  if (data.loading) {
     return (
       <View style={styles.loading}>
         <ViraLogoSpinner size={32} />
