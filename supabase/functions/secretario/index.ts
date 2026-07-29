@@ -6,12 +6,13 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-function montarPrompt(texto: string, dataAtual: string, espacos: string[]) {
+function montarPrompt(texto: string, dataAtual: string, espacos: string[], areaAtuacao: string | null) {
   return `Você é o Secretário do Vira, um assistente que transforma uma ideia solta em uma tarefa estruturada.
 
 CONTEXTO:
 - Data de hoje: ${dataAtual} (formato YYYY-MM-DD)
 - Espaços disponíveis do usuário: ${JSON.stringify(espacos)}
+${areaAtuacao ? `- Área de atuação do usuário: ${areaAtuacao} (use isso só como pista de contexto pra interpretar termos ambíguos, nunca invente detalhes que a pessoa não disse)` : ''}
 
 REGRAS:
 - Responda APENAS com um JSON válido, sem nenhum texto antes ou depois, sem markdown, sem explicação.
@@ -56,12 +57,13 @@ serve(async (req) => {
     return new Response('ok', { headers: CORS_HEADERS });
   }
 
-  let texto: string, dataAtual: string, espacos: string[];
+  let texto: string, dataAtual: string, espacos: string[], areaAtuacao: string | null;
   try {
     const body = await req.json();
     texto = body.texto;
     dataAtual = body.dataAtual;
     espacos = body.espacos || [];
+    areaAtuacao = body.areaAtuacao || null;
   } catch {
     return jsonResponse({ error: 'requisicao_invalida' }, 400);
   }
@@ -75,7 +77,7 @@ serve(async (req) => {
     return jsonResponse({ error: 'secretario_indisponivel' }, 500);
   }
 
-  const prompt = montarPrompt(texto, dataAtual, espacos);
+  const prompt = montarPrompt(texto, dataAtual, espacos, areaAtuacao);
 
   let resposta: Response;
   try {

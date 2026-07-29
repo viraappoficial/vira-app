@@ -30,14 +30,14 @@ function encontrarEspacoId(nomeEspaco, espacosList) {
 // Chama o Secretário (Edge Function) e devolve uma lista de tarefas já prontas pra criar —
 // 1 item quando é uma tarefa só (caso comum, preenche o modal pra revisão), N itens quando
 // o texto descrevia várias ações distintas, incluindo o mapeamento de espaço -> espaco_id.
-export async function chamarSecretario(texto, espacosList) {
+export async function chamarSecretario(texto, espacosList, areaAtuacao) {
   const dataAtual = new Date().toISOString().slice(0, 10);
   const espacos = espacosList.map((e) => e.nome);
 
   // Nome real do endpoint no Supabase é "smart-api" (slug não muda ao editar o "Name"
   // de exibição no painel) — a função em si é o Secretário, só o slug ficou assim.
   const { data, error } = await supabase.functions.invoke('smart-api', {
-    body: { texto, dataAtual, espacos },
+    body: { texto, dataAtual, espacos, areaAtuacao: areaAtuacao || null },
   });
 
   if (error || !data || data.error) {

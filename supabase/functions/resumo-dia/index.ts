@@ -13,7 +13,7 @@ type Tarefa = {
   hora: string | null;
 };
 
-function montarPrompt(nomeUsuario: string, tarefas: Tarefa[]) {
+function montarPrompt(nomeUsuario: string, tarefas: Tarefa[], areaAtuacao: string | null) {
   const linhas = tarefas.map((t) => {
     const partes = [`- "${t.titulo}"`, `status: ${t.status}`, `prioridade: ${t.prioridade}`];
     if (t.hora) partes.push(`horário: ${t.hora}`);
@@ -23,7 +23,7 @@ function montarPrompt(nomeUsuario: string, tarefas: Tarefa[]) {
   return `Você é o Secretário do Vira, um app de tarefas que fala com calma, sem soar corporativo nem robótico e sem sermão de produtividade.
 
 Gere um resumo curto (2 a 3 frases, no máximo) do dia de ${nomeUsuario}, baseado na lista de tarefas abaixo. Fale em português, em tom natural e acolhedor, como quem observou o dia de longe. Pode mencionar o que foi concluído, o que ainda falta ou o que está atrasado, mas sem soar repreensivo — se houver atraso, trate com leveza, não como cobrança. Se não houver tarefas, diga isso de um jeito tranquilo.
-
+${areaAtuacao ? `\n${nomeUsuario} trabalha/estuda com: ${areaAtuacao}. Use isso só como pista de contexto se ajudar a soar mais natural, nunca invente tarefas ou detalhes que não estão na lista.\n` : ''}
 TAREFAS DE HOJE:
 ${linhas.length > 0 ? linhas.join('\n') : '(nenhuma tarefa hoje)'}
 
@@ -43,11 +43,12 @@ serve(async (req) => {
     return new Response('ok', { headers: CORS_HEADERS });
   }
 
-  let nomeUsuario: string, tarefas: Tarefa[];
+  let nomeUsuario: string, tarefas: Tarefa[], areaAtuacao: string | null;
   try {
     const body = await req.json();
     nomeUsuario = body.nomeUsuario || 'você';
     tarefas = Array.isArray(body.tarefas) ? body.tarefas : [];
+    areaAtuacao = body.areaAtuacao || null;
   } catch {
     return jsonResponse({ error: 'requisicao_invalida' }, 400);
   }
@@ -57,7 +58,7 @@ serve(async (req) => {
     return jsonResponse({ error: 'resumo_indisponivel' }, 500);
   }
 
-  const prompt = montarPrompt(nomeUsuario, tarefas);
+  const prompt = montarPrompt(nomeUsuario, tarefas, areaAtuacao);
 
   let resposta: Response;
   try {

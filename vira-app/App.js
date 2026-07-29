@@ -35,6 +35,7 @@ function MainApp({ session }) {
   const [virarDiaToast, setVirarDiaToast] = useState(null);
   const [selectedDate, setSelectedDate] = useState(todayIso());
   const userName = session.user.user_metadata?.nome?.trim() || capitalize(session.user.email.split('@')[0]);
+  const areaAtuacao = session.user.user_metadata?.area_atuacao?.trim() || null;
   const data = useViraData(session.user.id);
   const onboardingKey = `vira_onboarding_seen_${session.user.id}`;
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -92,6 +93,10 @@ function MainApp({ session }) {
     await supabase.auth.updateUser({ data: { nome } });
   }
 
+  async function handleSaveArea(area) {
+    await supabase.auth.updateUser({ data: { area_atuacao: area } });
+  }
+
   async function handleOnboardingDone() {
     await AsyncStorage.setItem(onboardingKey, '1');
     setOnboardingSeen(true);
@@ -106,7 +111,16 @@ function MainApp({ session }) {
   }
 
   if (!onboardingSeen) {
-    return <OnboardingScreen onCreateTasks={handleOnboardingCreateTasks} onDone={handleOnboardingDone} />;
+    return (
+      <OnboardingScreen
+        userNameSugerido={userName}
+        onSaveNome={handleSaveNome}
+        onSaveArea={handleSaveArea}
+        onCreateEspaco={data.createEspaco}
+        onCreateTasks={handleOnboardingCreateTasks}
+        onDone={handleOnboardingDone}
+      />
+    );
   }
 
   return (
@@ -118,7 +132,7 @@ function MainApp({ session }) {
         ]}
       >
         <View style={styles.topBarLeft}>
-          <ViraLogoSpinner size={isWide ? 30 : 22} loop={false} />
+          <ViraLogoSpinner key={tela} size={isWide ? 30 : 22} loop={false} />
           <Text style={[styles.brand, isWide && styles.brandWide]}>vira</Text>
         </View>
         <View style={styles.topBarRight}>
@@ -137,6 +151,7 @@ function MainApp({ session }) {
         {tela === 'home' ? (
           <HomeScreen
             userName={userName}
+            areaAtuacao={areaAtuacao}
             tasks={data.tasks}
             espacos={data.espacos}
             refreshing={data.refreshing}
@@ -150,6 +165,7 @@ function MainApp({ session }) {
           <KanbanScreen
             tasks={data.tasks}
             espacos={data.espacos}
+            areaAtuacao={areaAtuacao}
             onSetStatus={handleSetStatus}
             onEditTask={setTaskModal}
             onCreateTarefa={data.createTarefa}
@@ -191,6 +207,7 @@ function MainApp({ session }) {
         espacosList={data.espacosList}
         modelosList={data.modelos}
         defaultDate={selectedDate}
+        areaAtuacao={areaAtuacao}
         onClose={() => setTaskModal(undefined)}
         onCreate={async (payload) => {
           const { error } = await data.createTarefa(payload);

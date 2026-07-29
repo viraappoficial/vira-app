@@ -8,7 +8,7 @@ const MENSAGENS_ERRO = {
 };
 
 // Chama a Edge Function que gera o resumo do dia em linguagem natural via Gemini.
-export async function chamarResumoDia(nomeUsuario, tarefasHoje) {
+export async function chamarResumoDia(nomeUsuario, tarefasHoje, areaAtuacao) {
   const tarefas = tarefasHoje.map((t) => ({
     titulo: t.titulo,
     status: t.status,
@@ -17,7 +17,7 @@ export async function chamarResumoDia(nomeUsuario, tarefasHoje) {
   }));
 
   const { data, error } = await supabase.functions.invoke('resumo-dia', {
-    body: { nomeUsuario, tarefas },
+    body: { nomeUsuario, tarefas, areaAtuacao: areaAtuacao || null },
   });
 
   if (error || !data || data.error) {
