@@ -24,6 +24,9 @@
         height: 100%;
         /* Evita zoom por duplo toque/pinça — o app já se ajusta à tela sozinho. */
         touch-action: manipulation;
+        /* Sem isso, qualquer área não coberta pelo app (ex: atrás do indicador
+           de home no iOS) aparece branca por padrão do navegador. */
+        background-color: #14161c;
       }
       /* No PWA instalado no iOS (modo standalone/fullscreen), 100% pode ficar maior
          que a área visível de verdade — 100dvh acompanha a altura visível real. */
