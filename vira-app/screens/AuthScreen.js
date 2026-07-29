@@ -18,24 +18,66 @@ const SUBTITLES = [
   'Bora organizar sem virar um segundo trabalho.',
 ];
 
+const MENSAGENS_ERRO = {
+  'Invalid login credentials': 'E-mail ou senha errados.',
+  'User already registered': 'Esse e-mail já tem conta — tenta entrar.',
+  'Password should be at least 6 characters': 'A senha precisa ter pelo menos 6 caracteres.',
+};
+
 export default function AuthScreen() {
   const subtitle = useMemo(() => SUBTITLES[Math.floor(Math.random() * SUBTITLES.length)], []);
+  const [modo, setModo] = useState('login'); // login | criar
   const [email, setEmail] = useState('');
-  const [status, setStatus] = useState('idle'); // idle | sending | sent | error
+  const [senha, setSenha] = useState('');
+  const [confirmarSenha, setConfirmarSenha] = useState('');
+  const [status, setStatus] = useState('idle'); // idle | enviando | erro
   const [errorMsg, setErrorMsg] = useState('');
+  const [contaCriadaAguardandoEmail, setContaCriadaAguardandoEmail] = useState(false);
 
-  async function handleSendLink() {
-    const trimmed = email.trim();
-    if (!trimmed) return;
-    setStatus('sending');
+  const isCriar = modo === 'criar';
+
+  function handleTrocarModo() {
+    setModo(isCriar ? 'login' : 'criar');
+    setStatus('idle');
     setErrorMsg('');
-    const { error } = await supabase.auth.signInWithOtp({ email: trimmed });
-    if (error) {
-      setStatus('error');
-      setErrorMsg('Não rolou dessa vez. Confere o e-mail e tenta de novo.');
+    setSenha('');
+    setConfirmarSenha('');
+  }
+
+  async function handleSubmit() {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !senha) return;
+
+    if (isCriar && senha !== confirmarSenha) {
+      setStatus('erro');
+      setErrorMsg('As senhas não são iguais.');
       return;
     }
-    setStatus('sent');
+
+    setStatus('enviando');
+    setErrorMsg('');
+
+    if (isCriar) {
+      const { data, error } = await supabase.auth.signUp({ email: trimmedEmail, password: senha });
+      if (error) {
+        setStatus('erro');
+        setErrorMsg(MENSAGENS_ERRO[error.message] || 'Não rolou dessa vez. Tenta de novo.');
+        return;
+      }
+      if (!data.session) {
+        setContaCriadaAguardandoEmail(true);
+        setStatus('idle');
+        return;
+      }
+      // Se já veio sessão, o listener no App.js pega a troca sozinho.
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password: senha });
+      if (error) {
+        setStatus('erro');
+        setErrorMsg(MENSAGENS_ERRO[error.message] || 'Não rolou dessa vez. Tenta de novo.');
+        return;
+      }
+    }
   }
 
   return (
@@ -48,10 +90,10 @@ export default function AuthScreen() {
         <Text style={styles.title}>vira</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
 
-        {status === 'sent' ? (
+        {contaCriadaAguardandoEmail ? (
           <View style={styles.sentBox}>
-            <Text style={styles.sentText}>Te mandamos um link pro seu e-mail.</Text>
-            <Text style={styles.sentSubtext}>É só abrir e você já entra.</Text>
+            <Text style={styles.sentText}>Confirma seu e-mail pra ativar a conta.</Text>
+            <Text style={styles.sentSubtext}>Te mandamos um link de confirmação — depois é só entrar normal.</Text>
           </View>
         ) : (
           <>
@@ -64,24 +106,53 @@ export default function AuthScreen() {
               autoCorrect={false}
               keyboardType="email-address"
               style={styles.input}
-              editable={status !== 'sending'}
-              onSubmitEditing={handleSendLink}
+              editable={status !== 'enviando'}
             />
-            {status === 'error' && <Text style={styles.errorText}>{errorMsg}</Text>}
+            <TextInput
+              value={senha}
+              onChangeText={setSenha}
+              placeholder="Senha"
+              placeholderTextColor={COLORS.textSecondary}
+              secureTextEntry
+              style={styles.input}
+              editable={status !== 'enviando'}
+              onSubmitEditing={isCriar ? undefined : handleSubmit}
+            />
+            {isCriar && (
+              <TextInput
+                value={confirmarSenha}
+                onChangeText={setConfirmarSenha}
+                placeholder="Confirmar senha"
+                placeholderTextColor={COLORS.textSecondary}
+                secureTextEntry
+                style={styles.input}
+                editable={status !== 'enviando'}
+                onSubmitEditing={handleSubmit}
+              />
+            )}
+
+            {status === 'erro' && <Text style={styles.errorText}>{errorMsg}</Text>}
+
             <Pressable
-              onPress={handleSendLink}
-              disabled={!email.trim() || status === 'sending'}
+              onPress={handleSubmit}
+              disabled={!email.trim() || !senha || status === 'enviando'}
               style={({ pressed }) => [
                 styles.button,
-                (!email.trim() || status === 'sending') && styles.buttonDisabled,
+                (!email.trim() || !senha || status === 'enviando') && styles.buttonDisabled,
                 pressed && styles.buttonPressed,
               ]}
             >
-              {status === 'sending' ? (
+              {status === 'enviando' ? (
                 <ActivityIndicator color={COLORS.bg} />
               ) : (
-                <Text style={styles.buttonText}>Enviar link mágico</Text>
+                <Text style={styles.buttonText}>{isCriar ? 'Criar conta' : 'Entrar'}</Text>
               )}
+            </Pressable>
+
+            <Pressable onPress={handleTrocarModo} style={styles.trocarModoButton}>
+              <Text style={styles.trocarModoText}>
+                {isCriar ? 'Já tem conta? Entrar' : 'Não tem conta? Criar conta'}
+              </Text>
             </Pressable>
           </>
         )}
@@ -153,6 +224,13 @@ const styles = StyleSheet.create({
     color: COLORS.bg,
     fontSize: 15,
     fontWeight: '600',
+  },
+  trocarModoButton: {
+    marginTop: 4,
+  },
+  trocarModoText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
   },
   sentBox: {
     alignItems: 'center',
