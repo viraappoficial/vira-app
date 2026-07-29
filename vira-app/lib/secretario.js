@@ -27,8 +27,9 @@ function encontrarEspacoId(nomeEspaco, espacosList) {
   return parcial ? parcial.id : null;
 }
 
-// Chama o Secretário (Edge Function) e devolve os campos já prontos pra ModalNovaTarefa,
-// incluindo o mapeamento de nome de espaço -> espaco_id.
+// Chama o Secretário (Edge Function) e devolve uma lista de tarefas já prontas pra criar —
+// 1 item quando é uma tarefa só (caso comum, preenche o modal pra revisão), N itens quando
+// o texto descrevia várias ações distintas, incluindo o mapeamento de espaço -> espaco_id.
 export async function chamarSecretario(texto, espacosList) {
   const dataAtual = new Date().toISOString().slice(0, 10);
   const espacos = espacosList.map((e) => e.nome);
@@ -45,12 +46,14 @@ export async function chamarSecretario(texto, espacosList) {
     throw new Error(mensagem);
   }
 
-  return {
-    titulo: data.titulo || texto,
-    descricao: data.descricao || '',
-    data_prevista: data.data_prevista || null,
-    hora: data.hora || null,
-    espaco_id: encontrarEspacoId(data.espaco, espacosList),
-    prioridade: ['baixa', 'media', 'alta'].includes(data.prioridade) ? data.prioridade : 'media',
-  };
+  const lista = Array.isArray(data.tarefas) ? data.tarefas : [data];
+
+  return lista.map((t) => ({
+    titulo: t.titulo || texto,
+    descricao: t.descricao || '',
+    data_prevista: t.data_prevista || null,
+    hora: t.hora || null,
+    espaco_id: encontrarEspacoId(t.espaco, espacosList),
+    prioridade: ['baixa', 'media', 'alta'].includes(t.prioridade) ? t.prioridade : 'media',
+  }));
 }

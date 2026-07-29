@@ -113,7 +113,26 @@ export default function ModalNovaTarefa({
     setSecretarioLoading(true);
     setSecretarioErro(null);
     try {
-      const resultado = await chamarSecretario(titulo.trim(), espacosList);
+      const lista = await chamarSecretario(titulo.trim(), espacosList);
+
+      if (lista.length > 1) {
+        // Várias tarefas detectadas na mesma frase: cria todas direto, sem passar
+        // pela revisão manual do modal (que só tem espaço pra 1 tarefa por vez).
+        for (const t of lista) {
+          await onCreate({
+            titulo: t.titulo,
+            descricao: t.descricao || null,
+            espaco_id: t.espaco_id,
+            prioridade: t.prioridade,
+            hora: t.hora,
+            data_prevista: t.data_prevista || defaultDate || todayIso(),
+          });
+        }
+        onClose();
+        return;
+      }
+
+      const resultado = lista[0];
       setTitulo(resultado.titulo);
       if (resultado.descricao) setDescricao(resultado.descricao);
       if (resultado.data_prevista) setDataPrevista(resultado.data_prevista);
