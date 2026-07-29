@@ -33,7 +33,9 @@ export async function chamarSecretario(texto, espacosList) {
   const dataAtual = new Date().toISOString().slice(0, 10);
   const espacos = espacosList.map((e) => e.nome);
 
-  const { data, error } = await supabase.functions.invoke('secretario', {
+  // Nome real do endpoint no Supabase é "smart-api" (slug não muda ao editar o "Name"
+  // de exibição no painel) — a função em si é o Secretário, só o slug ficou assim.
+  const { data, error } = await supabase.functions.invoke('smart-api', {
     body: { texto, dataAtual, espacos },
   });
 
