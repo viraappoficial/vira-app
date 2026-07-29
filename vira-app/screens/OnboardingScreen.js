@@ -20,6 +20,7 @@ export default function OnboardingScreen({
   onSaveNome,
   onSaveArea,
   onCreateEspaco,
+  onDeleteEspaco,
   onCreateTasks,
   onDone,
 }) {
@@ -61,6 +62,11 @@ export default function OnboardingScreen({
       setNovoEspacoInput('');
     }
     setCriandoEspaco(false);
+  }
+
+  async function handleRemoverEspaco(espaco) {
+    setEspacosCriados((prev) => prev.filter((e) => e.id !== espaco.id));
+    await onDeleteEspaco(espaco.id);
   }
 
   const nomesJaCriados = espacosCriados.map((e) => e.nome.toLowerCase());
@@ -185,7 +191,9 @@ export default function OnboardingScreen({
                       <View style={[styles.espacoDot, { backgroundColor: e.cor }]} />
                       <Text style={styles.tarefaText}>{e.nome}</Text>
                     </View>
-                    <Check size={14} color={COLORS.concluido} />
+                    <Pressable onPress={() => handleRemoverEspaco(e)}>
+                      <Text style={styles.removerText}>remover</Text>
+                    </Pressable>
                   </View>
                 ))}
               </View>
