@@ -19,11 +19,12 @@ REGRAS:
 - "hora" deve estar no formato exato "HH:MM" em 24 horas (ex: "09:00", "14:30"), ou null se o usuário não mencionar horário.
 - Infira o espaço mais provável pelo contexto da frase, usando exatamente um dos nomes da lista de espaços disponíveis. Se não for possível inferir, deixe "espaco" como null.
 - Infira a prioridade como "alta" só se houver urgência explícita (ex: "urgente", "hoje mesmo", "importante"). Caso contrário, use "media".
-- O campo "titulo" deve ser uma versão limpa e curta da tarefa, sem preencher com informação que não foi dita.
+- Separe a ação principal dos detalhes: "titulo" é uma versão curta (tipo "Falar com Rebeca"), com quem/o quê central da tarefa, sem data/hora/prioridade dentro do texto. "descricao" leva o resto — os detalhes, tópicos, contexto que a pessoa mencionou (ex: "Convênios PF, cobrança, data de fechamento, forma de pagamento"), como uma lista curta separada por vírgula ou frase corrida, sem repetir o que já virou "titulo". Se não sobrar detalhe nenhum além do título, "descricao" é null.
 
 FORMATO DE SAÍDA (exato):
 {
   "titulo": string,
+  "descricao": string | null,
   "data_prevista": string | null,
   "hora": string | null,
   "espaco": string | null,
@@ -110,6 +111,7 @@ serve(async (req) => {
 
   return jsonResponse({
     titulo: estruturado.titulo ?? null,
+    descricao: estruturado.descricao ?? null,
     data_prevista: estruturado.data_prevista ?? null,
     hora: estruturado.hora ?? null,
     espaco: estruturado.espaco ?? null,

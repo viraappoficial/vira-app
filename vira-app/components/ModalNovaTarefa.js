@@ -115,6 +115,7 @@ export default function ModalNovaTarefa({
     try {
       const resultado = await chamarSecretario(titulo.trim(), espacosList);
       setTitulo(resultado.titulo);
+      if (resultado.descricao) setDescricao(resultado.descricao);
       if (resultado.data_prevista) setDataPrevista(resultado.data_prevista);
       if (resultado.hora) setHora(resultado.hora);
       if (resultado.espaco_id) setEspacoId(resultado.espaco_id);

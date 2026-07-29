@@ -47,6 +47,7 @@ export async function chamarSecretario(texto, espacosList) {
 
   return {
     titulo: data.titulo || texto,
+    descricao: data.descricao || '',
     data_prevista: data.data_prevista || null,
     hora: data.hora || null,
     espaco_id: encontrarEspacoId(data.espaco, espacosList),
