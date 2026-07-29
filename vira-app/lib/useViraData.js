@@ -154,8 +154,14 @@ export function useViraData(userId) {
       count = paraAtrasar.length;
       if (count === 0) return prev;
       const ids = paraAtrasar.map((t) => t.id);
-      supabase.from('tarefas').update({ status: 'atrasado' }).in('id', ids);
-      return prev.map((t) => (ids.includes(t.id) ? { ...t, status: 'atrasado' } : t));
+      ids.forEach((id) => {
+        const atual = prev.find((t) => t.id === id)?.vezes_adiada || 0;
+        supabase
+          .from('tarefas')
+          .update({ status: 'atrasado', vezes_adiada: atual + 1 })
+          .eq('id', id);
+      });
+      return prev.map((t) => (ids.includes(t.id) ? { ...t, status: 'atrasado', vezes_adiada: (t.vezes_adiada || 0) + 1 } : t));
     });
     return count;
   }, []);

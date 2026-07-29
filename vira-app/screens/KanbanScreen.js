@@ -78,6 +78,11 @@ function CardContent({ task, espaco }) {
         <EspacoCapsula espaco={espaco} small />
         {task.hora && <Text style={styles.cardHora}>{task.hora.slice(0, 5)}</Text>}
       </View>
+      {task.vezes_adiada >= 3 && (
+        <Text style={styles.nudgeText}>
+          Adiada {task.vezes_adiada}x — talvez valha dividir ela em partes menores
+        </Text>
+      )}
     </>
   );
 }
@@ -603,6 +608,12 @@ const styles = StyleSheet.create({
   cardHora: {
     color: COLORS.textSecondary,
     fontSize: 11,
+  },
+  nudgeText: {
+    color: COLORS.atrasado,
+    fontSize: 10,
+    fontStyle: 'italic',
+    marginTop: 6,
   },
   ghostCard: {
     position: 'fixed',
