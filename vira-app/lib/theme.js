@@ -11,3 +11,15 @@ export const COLORS = {
   atrasado: '#F0644B',
   fazer: '#6B7180',
 };
+
+export const PRIORIDADE_COLORS = {
+  baixa: COLORS.fazer,
+  media: COLORS.andamento,
+  alta: COLORS.atrasado,
+};
+
+export const PRIORIDADE_LABELS = {
+  baixa: 'Prioridade baixa',
+  media: 'Prioridade média',
+  alta: 'Prioridade alta',
+};

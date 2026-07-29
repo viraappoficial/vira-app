@@ -10,12 +10,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { COLORS } from '../lib/theme';
+import { COLORS, PRIORIDADE_COLORS } from '../lib/theme';
 
 const PRIORIDADES = [
-  { id: 'baixa', cor: COLORS.fazer },
-  { id: 'media', cor: COLORS.andamento },
-  { id: 'alta', cor: COLORS.atrasado },
+  { id: 'baixa', cor: PRIORIDADE_COLORS.baixa },
+  { id: 'media', cor: PRIORIDADE_COLORS.media },
+  { id: 'alta', cor: PRIORIDADE_COLORS.alta },
 ];
 
 const STATUS_ORDER = ['fazer', 'andamento', 'concluido', 'atrasado'];

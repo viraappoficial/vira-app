@@ -1,16 +1,16 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { COLORS } from '../lib/theme';
 
 const PARTICLE_COLORS = [COLORS.accent, COLORS.concluido, COLORS.andamento, '#E86F9C', '#8E6FE8'];
 const PARTICLE_COUNT = 16;
 
-function Particle({ index }) {
+function Particle({ index, scale: burstScale }) {
   const progress = useRef(new Animated.Value(0)).current;
   const angle = (index / PARTICLE_COUNT) * Math.PI * 2 + Math.random() * 0.5;
-  const distance = 60 + Math.random() * 50;
+  const distance = (60 + Math.random() * 50) * burstScale;
   const dx = Math.cos(angle) * distance;
-  const dy = Math.sin(angle) * distance - 20;
+  const dy = Math.sin(angle) * distance - 20 * burstScale;
   const color = PARTICLE_COLORS[index % PARTICLE_COLORS.length];
   const isSquare = index % 2 === 0;
   const rotateDeg = 180 + Math.random() * 360;
@@ -45,14 +45,20 @@ function Particle({ index }) {
   );
 }
 
-export default function ConfettiBurst({ burstKey }) {
+export default function ConfettiBurst({ burstKey, origin }) {
+  const { width, height } = useWindowDimensions();
   if (!burstKey) return null;
+
+  const referenceSize = 420;
+  const scale = Math.max(0.7, Math.min(Math.min(width, height) / referenceSize, 2.2));
+  const left = origin ? origin.x : width / 2;
+  const top = origin ? origin.y : height / 2;
 
   return (
     <View style={styles.overlay} pointerEvents="none">
-      <View style={styles.origin}>
+      <View style={[styles.origin, { left, top }]}>
         {Array.from({ length: PARTICLE_COUNT }).map((_, i) => (
-          <Particle key={`${burstKey}-${i}`} index={i} />
+          <Particle key={`${burstKey}-${i}`} index={i} scale={scale} />
         ))}
       </View>
     </View>
@@ -66,11 +72,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
     zIndex: 3000,
   },
   origin: {
+    position: 'absolute',
     width: 1,
     height: 1,
     alignItems: 'center',

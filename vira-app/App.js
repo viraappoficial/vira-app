@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Home as HomeIcon, LayoutGrid, Plus, Settings } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import ConfettiBurst from './components/ConfettiBurst';
 import ModalEspacos from './components/ModalEspacos';
 import ModalNovaTarefa from './components/ModalNovaTarefa';
@@ -23,6 +24,7 @@ function MainApp({ session }) {
   const [espacoModal, setEspacoModal] = useState(undefined); // undefined = fechado, null = criar, espaco = editar
   const [onboardingSeen, setOnboardingSeen] = useState(undefined);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
+  const [confettiOrigin, setConfettiOrigin] = useState(null);
   const userName = session.user.email.split('@')[0];
   const data = useViraData(session.user.id);
   const onboardingKey = `vira_onboarding_seen_${session.user.id}`;
@@ -44,18 +46,19 @@ function MainApp({ session }) {
     ]).start();
   }, [tela, fadeAnim, slideAnim]);
 
-  function celebrate() {
+  function celebrate(origin) {
+    setConfettiOrigin(origin || null);
     setConfettiTrigger((v) => v + 1);
   }
 
-  async function handleToggleHome(task) {
+  async function handleToggleHome(task, origin) {
     const novoStatus = task.status === 'concluido' ? 'fazer' : 'concluido';
-    if (novoStatus === 'concluido') celebrate();
+    if (novoStatus === 'concluido') celebrate(origin);
     await data.setTaskStatus(task.id, novoStatus);
   }
 
-  async function handleSetStatus(taskId, novoStatus) {
-    if (novoStatus === 'concluido') celebrate();
+  async function handleSetStatus(taskId, novoStatus, origin) {
+    if (novoStatus === 'concluido') celebrate(origin);
     await data.setTaskStatus(taskId, novoStatus);
   }
 
@@ -91,12 +94,12 @@ function MainApp({ session }) {
         ]}
       >
         <View style={styles.topBarLeft}>
-          <ViraLogo size={18} />
-          <Text style={styles.brand}>vira</Text>
+          <ViraLogo size={isWide ? 30 : 22} />
+          <Text style={[styles.brand, isWide && styles.brandWide]}>vira</Text>
         </View>
         <View style={styles.topBarRight}>
           <Pressable onPress={() => setEspacosListVisible(true)} hitSlop={8}>
-            <Settings size={16} color={COLORS.textSecondary} />
+            <Settings size={isWide ? 20 : 16} color={COLORS.textSecondary} />
           </Pressable>
           <Pressable onPress={() => supabase.auth.signOut()}>
             <Text style={styles.signOut}>Sair</Text>
@@ -128,7 +131,7 @@ function MainApp({ session }) {
         )}
       </Animated.View>
 
-      <ConfettiBurst burstKey={confettiTrigger} />
+      <ConfettiBurst burstKey={confettiTrigger} origin={confettiOrigin} />
 
       <View style={styles.bottomNav}>
         <Pressable style={styles.navItem} onPress={() => setTela('home')}>
@@ -225,31 +228,36 @@ export default function App() {
 
   if (session === undefined) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={COLORS.accent} />
-        <StatusBar style="light" />
-      </View>
+      <GestureHandlerRootView style={styles.flex}>
+        <View style={styles.loading}>
+          <ActivityIndicator color={COLORS.accent} />
+          <StatusBar style="light" />
+        </View>
+      </GestureHandlerRootView>
     );
   }
 
   if (!session) {
     return (
-      <>
+      <GestureHandlerRootView style={styles.flex}>
         <AuthScreen />
         <StatusBar style="light" />
-      </>
+      </GestureHandlerRootView>
     );
   }
 
   return (
-    <>
+    <GestureHandlerRootView style={styles.flex}>
       <MainApp session={session} />
       <StatusBar style="light" />
-    </>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   loading: {
     flex: 1,
     backgroundColor: COLORS.bg,
@@ -273,19 +281,26 @@ const styles = StyleSheet.create({
   },
   topBarWideKanban: {
     maxWidth: 1100,
+    paddingTop: 24,
+    paddingBottom: 16,
   },
   topBarWideHome: {
     maxWidth: 720,
+    paddingTop: 24,
+    paddingBottom: 16,
   },
   topBarLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   brand: {
     color: COLORS.text,
     fontSize: 14,
     fontWeight: '600',
+  },
+  brandWide: {
+    fontSize: 19,
   },
   topBarRight: {
     flexDirection: 'row',
