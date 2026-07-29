@@ -99,6 +99,15 @@ function MainApp({ session }) {
     await supabase.auth.updateUser({ data: { area_atuacao: area } });
   }
 
+  async function handleDeleteAccount() {
+    const { error } = await supabase.functions.invoke('excluir-conta');
+    if (error) {
+      const corpo = await error.context?.json?.().catch(() => null);
+      throw new Error(corpo?.error || error.message);
+    }
+    await supabase.auth.signOut();
+  }
+
   async function handleOnboardingDone() {
     await AsyncStorage.setItem(onboardingKey, '1');
     setOnboardingSeen(true);
@@ -246,6 +255,7 @@ function MainApp({ session }) {
           setEspacosListVisible(false);
           setEspacoModal(null);
         }}
+        onDeleteAccount={handleDeleteAccount}
       />
 
       <ModalNovoEspaco
@@ -344,7 +354,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: Platform.OS === 'web' ? 'calc(16px + env(safe-area-inset-top))' : 16,
     paddingBottom: 8,
     maxWidth: 480,
     width: '100%',
@@ -391,7 +401,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'web' ? 'calc(10px + env(safe-area-inset-bottom))' : 10,
     paddingHorizontal: 24,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,

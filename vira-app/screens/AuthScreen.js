@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import ViraLogoSpinner from '../components/ViraLogoSpinner';
+import LegalScreen from './LegalScreen';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../lib/theme';
 
@@ -34,6 +36,8 @@ export default function AuthScreen() {
   const [errorMsg, setErrorMsg] = useState('');
   const [contaCriadaAguardandoEmail, setContaCriadaAguardandoEmail] = useState(false);
   const [recuperacaoEnviada, setRecuperacaoEnviada] = useState(false);
+  const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [legalVisivel, setLegalVisivel] = useState(null); // null | 'privacidade' | 'termos'
 
   const isCriar = modo === 'criar';
 
@@ -55,11 +59,21 @@ export default function AuthScreen() {
       return;
     }
 
+    if (isCriar && !aceitouTermos) {
+      setStatus('erro');
+      setErrorMsg('Pra criar conta, aceita a Política de Privacidade e os Termos de Uso.');
+      return;
+    }
+
     setStatus('enviando');
     setErrorMsg('');
 
     if (isCriar) {
-      const { data, error } = await supabase.auth.signUp({ email: trimmedEmail, password: senha });
+      const { data, error } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password: senha,
+        options: { data: { termos_aceitos_em: new Date().toISOString() } },
+      });
       if (error) {
         setStatus('erro');
         setErrorMsg(MENSAGENS_ERRO[error.message] || 'Não rolou dessa vez. Tenta de novo.');
@@ -154,14 +168,37 @@ export default function AuthScreen() {
               />
             )}
 
+            {isCriar && (
+              <Pressable
+                style={styles.termosRow}
+                onPress={() => setAceitouTermos((v) => !v)}
+                hitSlop={4}
+              >
+                <View style={[styles.checkbox, aceitouTermos && styles.checkboxAtivo]}>
+                  {aceitouTermos && <Check size={12} color={COLORS.bg} strokeWidth={3} />}
+                </View>
+                <Text style={styles.termosText}>
+                  Li e aceito a{' '}
+                  <Text style={styles.termosLink} onPress={() => setLegalVisivel('privacidade')}>
+                    Política de Privacidade
+                  </Text>{' '}
+                  e os{' '}
+                  <Text style={styles.termosLink} onPress={() => setLegalVisivel('termos')}>
+                    Termos de Uso
+                  </Text>
+                </Text>
+              </Pressable>
+            )}
+
             {status === 'erro' && <Text style={styles.errorText}>{errorMsg}</Text>}
 
             <Pressable
               onPress={handleSubmit}
-              disabled={!email.trim() || !senha || status === 'enviando'}
+              disabled={!email.trim() || !senha || status === 'enviando' || (isCriar && !aceitouTermos)}
               style={({ pressed }) => [
                 styles.button,
-                (!email.trim() || !senha || status === 'enviando') && styles.buttonDisabled,
+                (!email.trim() || !senha || status === 'enviando' || (isCriar && !aceitouTermos)) &&
+                  styles.buttonDisabled,
                 pressed && styles.buttonPressed,
               ]}
             >
@@ -186,6 +223,12 @@ export default function AuthScreen() {
           </>
         )}
       </View>
+
+      <LegalScreen
+        visible={legalVisivel !== null}
+        initialAba={legalVisivel || 'privacidade'}
+        onClose={() => setLegalVisivel(null)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -233,6 +276,37 @@ const styles = StyleSheet.create({
     color: COLORS.atrasado,
     fontSize: 13,
     alignSelf: 'flex-start',
+  },
+  termosRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    width: '100%',
+    marginTop: 2,
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  checkboxAtivo: {
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent,
+  },
+  termosText: {
+    flex: 1,
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  termosLink: {
+    color: COLORS.accent,
+    fontWeight: '600',
   },
   button: {
     width: '100%',

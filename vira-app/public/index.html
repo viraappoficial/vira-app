@@ -3,7 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no, viewport-fit=cover"
+    />
     <title>Vira</title>
 
     <link rel="manifest" href="/manifest.json" />
@@ -19,6 +22,16 @@
       html,
       body {
         height: 100%;
+        /* Evita zoom por duplo toque/pinça — o app já se ajusta à tela sozinho. */
+        touch-action: manipulation;
+      }
+      /* No PWA instalado no iOS (modo standalone/fullscreen), 100% pode ficar maior
+         que a área visível de verdade — 100dvh acompanha a altura visível real. */
+      @supports (height: 100dvh) {
+        html,
+        body {
+          height: 100dvh;
+        }
       }
       /* These styles disable body scrolling if you are using <ScrollView> */
       body {
