@@ -14,11 +14,13 @@ import { supabase } from './lib/supabase';
 import { todayIso } from './lib/calendario';
 import { VIRAR_DIA_MESSAGES, pickRandom } from './lib/copy';
 import { registrarServiceWorker } from './lib/push';
+import { configurarScrollbarWeb } from './lib/webScrollbar';
 import { COLORS } from './lib/theme';
 import AuthScreen from './screens/AuthScreen';
 import HomeScreen from './screens/HomeScreen';
 import KanbanScreen from './screens/KanbanScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
+import ResetSenhaScreen from './screens/ResetSenhaScreen';
 
 function capitalize(text) {
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
@@ -273,10 +275,13 @@ function MainApp({ session }) {
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = carregando, null = deslogado
+  const [recuperandoSenha, setRecuperandoSenha] = useState(false);
 
   useEffect(() => {
+    if (Platform.OS === 'web') configurarScrollbarWeb();
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (event === 'PASSWORD_RECOVERY') setRecuperandoSenha(true);
       setSession(newSession);
     });
     return () => subscription.subscription.unsubscribe();
@@ -297,6 +302,15 @@ export default function App() {
     return (
       <GestureHandlerRootView style={styles.flex}>
         <AuthScreen />
+        <StatusBar style="light" />
+      </GestureHandlerRootView>
+    );
+  }
+
+  if (recuperandoSenha) {
+    return (
+      <GestureHandlerRootView style={styles.flex}>
+        <ResetSenhaScreen onDone={() => setRecuperandoSenha(false)} />
         <StatusBar style="light" />
       </GestureHandlerRootView>
     );
