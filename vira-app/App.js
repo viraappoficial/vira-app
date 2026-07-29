@@ -99,6 +99,15 @@ function MainApp({ session }) {
     await supabase.auth.updateUser({ data: { area_atuacao: area } });
   }
 
+  async function handleDeleteAccount() {
+    const { error } = await supabase.functions.invoke('excluir-conta');
+    if (error) {
+      const corpo = await error.context?.json?.().catch(() => null);
+      throw new Error(corpo?.error || error.message);
+    }
+    await supabase.auth.signOut();
+  }
+
   async function handleOnboardingDone() {
     await AsyncStorage.setItem(onboardingKey, '1');
     setOnboardingSeen(true);
@@ -246,6 +255,7 @@ function MainApp({ session }) {
           setEspacosListVisible(false);
           setEspacoModal(null);
         }}
+        onDeleteAccount={handleDeleteAccount}
       />
 
       <ModalNovoEspaco
