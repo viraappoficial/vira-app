@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import DatePickerPopover from './DatePickerPopover';
 import { formatDiaCurto, todayIso } from '../lib/calendario';
+import { pickRandom, TITULO_PLACEHOLDERS } from '../lib/copy';
 import { chamarSecretario } from '../lib/secretario';
 import { COLORS, PRIORIDADE_COLORS } from '../lib/theme';
 
@@ -76,6 +77,7 @@ export default function ModalNovaTarefa({
   const [salvandoModelo, setSalvandoModelo] = useState(false);
   const [secretarioLoading, setSecretarioLoading] = useState(false);
   const [secretarioErro, setSecretarioErro] = useState(null);
+  const [tituloPlaceholder, setTituloPlaceholder] = useState(TITULO_PLACEHOLDERS[0]);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -98,6 +100,7 @@ export default function ModalNovaTarefa({
       setHora('');
       setStatus('fazer');
       setDataPrevista(defaultDate || todayIso());
+      setTituloPlaceholder(pickRandom(TITULO_PLACEHOLDERS));
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [visible, task, defaultDate]);
@@ -203,7 +206,7 @@ export default function ModalNovaTarefa({
             ref={inputRef}
             value={titulo}
             onChangeText={setTitulo}
-            placeholder="O que você precisa lembrar?"
+            placeholder={isEdit ? 'O que você precisa lembrar?' : tituloPlaceholder}
             placeholderTextColor={COLORS.textSecondary}
             style={styles.input}
             onSubmitEditing={handleSalvar}
