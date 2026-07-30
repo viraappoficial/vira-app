@@ -6,6 +6,7 @@ import {
   Clock,
   Flag,
   Home as HomeIcon,
+  Mic,
   Plus,
   Repeat,
   Sparkles,
@@ -219,6 +220,15 @@ export default function ModalNovaTarefa({
             style={styles.input}
             onSubmitEditing={handleSalvar}
           />
+
+          {!titulo.trim() && (
+            <View style={styles.ditadoDica}>
+              <Mic size={11} color={COLORS.textSecondary} />
+              <Text style={styles.ditadoDicaText}>
+                Prefere falar? Toque no microfone do teclado pra ditar.
+              </Text>
+            </View>
+          )}
 
           {!isEdit && titulo.trim() && (
             <Pressable
@@ -481,6 +491,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 16,
+  },
+  ditadoDica: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: -10,
+    marginBottom: 16,
+  },
+  ditadoDicaText: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
   },
   secretarioButton: {
     flexDirection: 'row',
