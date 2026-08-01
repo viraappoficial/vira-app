@@ -1,8 +1,10 @@
-import { Bell, BellOff, Home as HomeIcon, Plus, ShieldAlert, X } from 'lucide-react-native';
+import { Bell, BellOff, Building2, Home as HomeIcon, Plus, ShieldAlert, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { buscarMinhaOrganizacao } from '../lib/organizacao';
 import { ativarNotificacoes, desativarNotificacoes, notificacoesAtivas, pushSuportado, statusPermissao } from '../lib/push';
 import { COLORS } from '../lib/theme';
+import ModalNovaOrganizacao from './ModalNovaOrganizacao';
 import LegalScreen from '../screens/LegalScreen';
 
 export default function ModalEspacos({
@@ -24,11 +26,20 @@ export default function ModalEspacos({
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const [excluirErro, setExcluirErro] = useState(null);
+  const [minhaOrganizacao, setMinhaOrganizacao] = useState(undefined); // undefined = carregando
+  const [novaOrgVisivel, setNovaOrgVisivel] = useState(false);
 
   useEffect(() => {
     if (!visible || !pushSuportado()) return;
     notificacoesAtivas().then(setNotifAtiva);
   }, [visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+    buscarMinhaOrganizacao(userId)
+      .then(setMinhaOrganizacao)
+      .catch(() => setMinhaOrganizacao(null));
+  }, [visible, userId]);
 
   if (!visible) return null;
 
@@ -115,6 +126,27 @@ export default function ModalEspacos({
           </View>
         )}
 
+        {minhaOrganizacao !== undefined && (
+          <View style={styles.orgField}>
+            {minhaOrganizacao ? (
+              <View style={styles.orgRow}>
+                <View style={[styles.orgIcon, { backgroundColor: `${minhaOrganizacao.cor}22` }]}>
+                  <Building2 size={14} color={minhaOrganizacao.cor} />
+                </View>
+                <View style={styles.notifTextBox}>
+                  <Text style={styles.notifLabel}>{minhaOrganizacao.nome}</Text>
+                  <Text style={styles.notifSubtext}>Você lidera essa organização.</Text>
+                </View>
+              </View>
+            ) : (
+              <Pressable onPress={() => setNovaOrgVisivel(true)} style={styles.orgCriarButton}>
+                <Building2 size={15} color={COLORS.accent} />
+                <Text style={styles.orgCriarButtonText}>Criar organização</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
         {espacosList.length === 0 ? (
           <Text style={styles.emptyText}>Nenhum espaço ainda — crie o primeiro abaixo.</Text>
         ) : (
@@ -180,6 +212,11 @@ export default function ModalEspacos({
       </View>
 
       <LegalScreen visible={legalVisivel} onClose={() => setLegalVisivel(false)} />
+      <ModalNovaOrganizacao
+        visible={novaOrgVisivel}
+        onClose={() => setNovaOrgVisivel(false)}
+        onCriada={(resultado) => setMinhaOrganizacao(resultado.organizacao)}
+      />
     </View>
   );
 }
@@ -238,6 +275,43 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     color: COLORS.text,
+  },
+  orgField: {
+    marginBottom: 16,
+  },
+  orgRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  orgIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orgCriarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  orgCriarButtonText: {
+    color: COLORS.accent,
+    fontSize: 13.5,
+    fontWeight: '500',
   },
   notifField: {
     marginBottom: 16,
