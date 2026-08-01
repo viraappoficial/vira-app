@@ -200,66 +200,96 @@ Ao cadastrar um espaço (empresa ou área pessoal), o usuário pode opcionalment
 
 ## 7.6 Modo Organização — Vira para equipes/empresas (desenhado — pronto pra construir quando fizer sentido)
 
-> Atualizado nesta rodada: essa ideia estava só registrada como visão de longo prazo. A pedido do Gabriel, ela foi desenhada em detalhe — modelo de dados, papéis, fluxo de convite e um roadmap faseado — pra não se perder. Isso **não significa que já vamos construir**: é a base pronta pra quando a decisão de "bora fazer" for tomada, sem precisar reinventar o desenho do zero.
+> Atualizado nesta rodada: essa ideia estava só registrada como visão de longo prazo. A pedido do Gabriel, ela foi desenhada em detalhe numa sessão de brainstorm conjunta — modelo de dados, hierarquia, relatórios, papel de IA e um roadmap faseado — pra não se perder. Isso **não significa que já vamos construir**: é a base pronta pra quando a decisão de "bora fazer" for tomada, sem precisar reinventar o desenho do zero.
 
-### O que é
+### O conceito: uma pirâmide, não só admin/colaborador
 
-Hoje o Vira é 100% individual: cada conta só enxerga os próprios espaços e tarefas (RLS por `usuario_id`). Modo Organização adiciona uma segunda forma de conta: várias pessoas (ex: funcionários da Prime) logam cada uma com seu próprio login, mas todas dentro de uma **organização** compartilhada — e quem administra enxerga o trabalho de todo mundo.
+A ideia do Gabriel é mais rica que um esquema de 2 papéis — é uma **hierarquia real, em árvore**, tipo organograma de empresa:
 
-Expande a Fase 5 do roadmap original ("modo compartilhado — board visível pra funcionário/sócio").
+- A organização se divide em **setores** (ex: Vendas, Financeiro, Estoque). Um setor pode ter **sub-setor dentro dele**, sem limite de profundidade (ex: Vendas → Vendas Loja 1, Vendas Loja 2) — é uma árvore de verdade, não 2 andares fixos.
+- Quem lidera um setor enxerga as tarefas/agenda de quem tá dentro dele **e de todos os sub-setores abaixo** (recursivo, subindo a árvore até o topo, que vê tudo).
+- Dentro do mesmo setor, colegas podem passar tarefa um pro outro e compartilhar andamento.
+- Fora da pirâmide, existe um papel de **Assistente**: alguém (ou uma função de IA) que cuida especificamente da agenda do topo da pirâmide, sem fazer parte da árvore de setores em si.
 
 ### Papéis
 
-- **Administrador/coordenador:** cria a organização, convida membros, tem visibilidade total sobre tarefas e agendas de todo o grupo.
-- **Colaborador:** loga normal, cria e gerencia suas próprias tarefas (a experiência de uso não muda pra ele); pode receber tarefas transferidas/atribuídas pelo admin, e pode transferir tarefas suas pra outra pessoa — mas **toda transferência exige aceite de quem recebe** (nunca é atribuição forçada, unilateral).
+- **Líder de organização (topo):** cria a organização, define os setores, vê tudo.
+- **Líder de setor:** vê as tarefas/agenda do próprio setor e de todos os sub-setores abaixo dele. Também é, ele mesmo, um colaborador (cria e cumpre as próprias tarefas normalmente).
+- **Colaborador:** usa o Vira normal — cria e gerencia suas tarefas. Pode compartilhar/transferir tarefa com colega do mesmo setor (com aceite de quem recebe, nunca atribuição forçada). Pode ter espaços pessoais dentro da mesma conta, com uma escolha explícita de **visibilidade**: por padrão, um espaço pessoal (ex: "Vida pessoal") fica 100% privado, mesmo dentro da organização; só fica visível pro líder se o próprio dono decidir marcar como visível.
+- **Assistente (novo, fora da árvore de setores):** tem acesso à agenda de uma pessoa específica (tipicamente o líder do topo) pra ajudar a organizar — não é sobre ver um setor inteiro, é sobre ajudar 1 pessoa.
 
 ### Modelo de dados (novo, em cima do que já existe)
 
 | Tabela | Função |
 |---|---|
-| `organizacoes` | A organização em si — `id`, `nome`, `dono_id` (usuário que criou/paga), `plano`, `criado_em` |
-| `membros_organizacao` | Ligação usuário ↔ organização, com `papel` (`admin` / `colaborador`) e `status` (`convidado` / `ativo` / `removido`) |
-| `convites_organizacao` | Convite pendente — `organizacao_id`, `email`, `token`, `status`, `expira_em`. Existe **antes** da pessoa convidada ter conta, pra permitir convidar por link/e-mail sem precisar que o convidado já esteja cadastrado |
-| `espacos.organizacao_id` | Novo campo (nullable) — `null` = espaço pessoal de sempre; preenchido = espaço pertence à organização, visível pro admin |
-| `tarefas.responsavel_id` | Novo campo — quem é o dono **atual** da tarefa (pode ser diferente de quem criou, depois de uma transferência aceita) |
-| `transferencias_tarefa` | Convite de transferência de uma tarefa específica — `tarefa_id`, `remetente_id`, `destinatario_id`, `status` (`pendente`/`aceita`/`recusada`) |
+| `organizacoes` | A organização — `id`, `nome`, `dono_id`, `plano`, `criado_em` |
+| `setores` | Nó da árvore — `id`, `organizacao_id`, `nome`, `setor_pai_id` (nullable, aponta pro setor acima; raiz = `null`) |
+| `membros_organizacao` | Usuário ↔ organização ↔ setor, com `papel` (`lider` / `colaborador`) e `status` (`convidado`/`ativo`/`removido`) |
+| `convites_organizacao` | Convite por link — `organizacao_id`, `setor_id`, `token`, `status`, `expira_em`. Existe antes da pessoa ter conta |
+| `assistentes` | `assistente_id`, `assistido_id` — dá a uma pessoa acesso de gestão à agenda de outra, fora da hierarquia de setor |
+| `espacos.organizacao_id` | Nullable — preenchido quando o espaço é da organização (em vez de pessoal) |
+| `espacos.visivel_para_lider` | Boolean, default `false` — só um espaço marcado como `true` some da privacidade padrão e aparece pro líder |
+| `tarefas.responsavel_id` | Dono atual da tarefa (pode diferir de quem criou, após transferência aceita) |
+| `transferencias_tarefa` | `tarefa_id`, `remetente_id`, `destinatario_id`, `status` (`pendente`/`aceita`/`recusada`) |
+| `comentarios_tarefa` | `tarefa_id`, `autor_id`, `texto`, `anexo_url` (nullable, Supabase Storage), `criado_em` — pra compartilhar resultado/print numa tarefa, sem precisar de chat |
 
-**Como funciona a visibilidade (RLS no Postgres/Supabase):**
-- Um espaço pessoal (`organizacao_id = null`) continua 100% privado, exatamente como hoje.
-- Um espaço de organização é visível pra: (a) o admin da organização, sempre; (b) o colaborador dono da tarefa (`responsavel_id`); (c) quem criou a tarefa, mesmo que já tenha transferido.
-- Isso é tecnicamente direto — mais uma política de RLS por tabela, sem precisar mudar a arquitetura atual. O que já existe (espaços pessoais, tarefas, modelos) não é afetado; a organização é uma camada adicional, opcional.
+**Como a visibilidade em árvore funciona tecnicamente:** com profundidade livre, "vê tudo abaixo de mim" precisa de uma consulta hierárquica eficiente — o jeito certo de fazer isso no Postgres é a extensão **`ltree`** (guarda o "caminho" de cada setor na árvore, tipo `empresa.vendas.loja1`, e permite consultar "tudo abaixo de vendas" com um índice rápido, em vez de subconsultas recursivas lentas). Isso é uma peça técnica concreta a mais em relação ao desenho anterior (que era só 2 níveis fixos) — mais correto a longo prazo, mas é o motivo de a Fase A ter ficado um pouco maior (ver roadmap abaixo).
 
-### Fluxo de uso (do ponto de vista de quem administra)
+### Recorrência semanal e tarefas fixas por setor
 
-1. No onboarding (ou depois, nas configurações), a pessoa escolhe "Criar organização" e dá um nome (ex: "Prime").
-2. Vira admin dessa organização automaticamente.
-3. Convida colaboradores por link de convite (mais simples de construir primeiro) ou e-mail (precisa de um provedor de e-mail transacional, tipo Resend — não é o SMTP limitado do Supabase Auth).
-4. Colaborador aceita o convite — se já tem conta Vira, só entra na organização; se não tem, cria a conta e já entra direto.
-5. Admin ganha uma tela nova ("Equipe" ou "Organização") que mostra o board/agenda de todo mundo, filtrável por pessoa.
+Hoje o Vira só tem recorrência diária (nos "modelos"/atalhos). Pra pirâmide, isso precisa crescer:
+- `modelos.recorrencia` ganha a opção `semanal`, com `modelos.dias_semana` (quais dias da semana repete).
+- Um líder de setor pode criar um modelo e "empurrar" pra todo mundo do setor de uma vez — cada colaborador recebe a tarefa recorrente automaticamente, sem precisar configurar individualmente.
 
-### Roadmap faseado (pra não precisar construir tudo de uma vez)
+### Relatórios de gestão
 
-**Fase A — visibilidade (o MVP real, o que já resolve 80% da dor):**
-`organizacoes`, `membros_organizacao`, convite por link (sem e-mail ainda), `espacos.organizacao_id`, e uma tela de admin só de **leitura** — vê o board de cada colaborador. Sem transferência de tarefa ainda.
+A boa notícia: boa parte do dado **já existe** no banco de hoje, então um relatório de organização é mais uma tela de agregação do que tracking novo:
+- `vezes_adiada` já existe (quantas vezes uma tarefa foi empurrada) → vira ranking de "o que mais atrasa".
+- `andamento_em` já existe (usado hoje pra detectar tarefa presa 3h+) → vira "tempo médio parado por pessoa/setor".
+- `concluido_em` + `status` já existem → taxa de conclusão por pessoa/setor/período.
 
-**Fase B — transferência/atribuição:**
-`transferencias_tarefa`, fluxo de aceite, `tarefas.responsavel_id`. Admin (ou colega) pode sugerir uma tarefa pra outra pessoa.
+Um relatório de "por que ficou parado" combina esses três — nenhum campo novo precisa ser criado pra isso, só a tela de visualização.
 
-**Fase C — cobrança por organização:**
-Hoje o plano pago (seção 7) é por conta individual. Organização precisa de cobrança própria — por assento (preço × nº de colaboradores) ou por organização (preço fixo, até N pessoas). Isso é decisão de preço nova, separada da seção 7.8, e só faz sentido depois que a Fase A provar que o modo é usado de verdade.
+### Papel da IA em modo organização
 
-### O que falta decidir antes de começar a Fase A
+Três extensões diretas de features que já existem, agora "olhando de cima" (agregado, não só individual):
+1. **Resumo executivo do setor/organização** — extensão do "Resumo do dia" já existente, agregando o time inteiro pro líder.
+2. **Detecção de padrão em nível de setor** — o Vira já detecta padrão pessoal; em modo organização, generaliza pra "esse tipo de tarefa sempre atrasa nesse setor" (insight de gestão).
+3. **Quebrar tarefa com sugestão de responsável** — o "Quebrar tarefa" já existe pra 1 pessoa; em modo organização, pode sugerir pra quem do setor distribuir cada pedaço, baseado em quem está com menos tarefa pendente.
 
-- **Convite por link ou e-mail primeiro?** Link é mais rápido de construir (nenhuma dependência externa); e-mail precisa de um provedor transacional.
-- **Um espaço pode "virar" organizacional depois de já existir, ou só espaços novos?** (afeta se dá pra migrar a Prime, que já existe hoje, pro modo organização sem recriar do zero).
-- **O admin também é "colaborador" dentro da própria organização** (cria tarefas própria dele) ou só administra? (a resposta natural é: sim, ele também usa normal, só que enxerga o resto também).
-- **Quem paga:** só o admin/dono da organização, ou cada colaborador paga sua própria "cadeira"? Afeta o modelo de cobrança da Fase C.
+### Fluxo de uso
+
+1. Líder cria a organização e os setores (pode ser só 1 setor "geral" pra começar, ou já estruturado).
+2. Convida gente por link — o link já pode levar a pessoa direto pro setor certo.
+3. Pessoa aceita o convite: se já tem conta Vira, só entra na organização; se não tem, cria a conta ali (com e-mail da empresa ou pessoal) e já entra no setor.
+4. Dentro da própria conta, a pessoa organiza a vida do trabalho **e** pode ter espaços pessoais à parte, escolhendo se ficam visíveis pro líder ou não.
+5. Líder de cada setor (e o topo, pra tudo) ganham uma tela de "Equipe"/"Organização" com o board agregado, relatórios, e resumo por IA.
+
+### Roadmap faseado
+
+**Fase A — estrutura + visibilidade (o alicerce):**
+`organizacoes`, `setores` (com `ltree`), `membros_organizacao`, convite por link, `espacos.organizacao_id` + `visivel_para_lider`, tela de líder só de **leitura** (board agregado do setor, recursivo pros sub-setores). Sem transferência, sem comentário, sem relatório ainda.
+
+**Fase B — colaboração:**
+`comentarios_tarefa` (com anexo), `transferencias_tarefa` com fluxo de aceite, `tarefas.responsavel_id`, papel de `assistentes`.
+
+**Fase C — inteligência de gestão:**
+Relatórios agregados (conclusão, `vezes_adiada`, tempo parado) e as 3 extensões de IA acima. Só faz sentido depois que a Fase A e B provarem uso real.
+
+**Fase D — cobrança por organização:**
+Hoje o plano pago (seção 7) é por conta individual. Precisa de um modelo novo — por assento (preço × nº de colaboradores) ou por organização (preço fixo até N pessoas) — e decidir quem paga (só o líder do topo, ou cada setor tem seu próprio orçamento). Deliberadamente por último: só decide preço depois que o produto provar que resolve a dor de verdade.
+
+### O que falta decidir (não trava o desenho, mas trava o começo da Fase A)
+
+- **Um espaço que já existe hoje (a Prime) pode "virar" organizacional depois, ou modo organização só vale pra espaço novo?** Afeta se dá pra migrar o uso atual sem recriar do zero.
+- **Convite por link ou e-mail primeiro?** Link é mais rápido de construir (zero dependência externa); e-mail precisa de um provedor transacional (tipo Resend).
+- **Quem paga, quando chegar na Fase D:** só o líder do topo, ou cada setor/pessoa?
 
 ### Resposta direta: dá pra construir?
 
-Sim — tecnicamente é só uma camada nova de tabelas + RLS em cima do que já existe hoje (nada do banco atual precisa mudar de arquitetura). O trabalho real está mais no fluxo de convite/aceite e na tela nova de admin do que em risco técnico. A Fase A sozinha (visibilidade, sem transferência) é um escopo de poucos dias de trabalho, não um projeto grande — dá pra fazer quando você decidir que é hora, sem precisar redesenhar nada disso de novo.
+Sim. A peça tecnicamente nova em relação à v1 do desenho é a árvore de profundidade livre (via `ltree`) — é mais correta a longo prazo, mas é trabalho real de banco de dados, não always risco de "não sabemos fazer". Nada da arquitetura atual do Vira muda: espaço pessoal, tarefa, modelo continuam existindo exatamente como hoje — modo organização é uma camada por cima, opcional, que só existe pra quem cria/entra numa organização.
 
-**Status:** desenho fechado, pronto pra virar tarefa técnica quando o Gabriel disser "bora". Ainda não implementado.
+**Status:** desenho fechado (pirâmide de profundidade livre + comentários por tarefa, decididos com o Gabriel), pronto pra virar tarefa técnica quando ele disser "bora". Ainda não implementado.
 
 ---
 
