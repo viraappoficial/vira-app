@@ -71,6 +71,13 @@ export function formatDiaLongo(dateStr) {
   return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${dt.getDate()} de ${MESES[dt.getMonth()]}`;
 }
 
+// Retorna dateStr se não for uma data passada, ou null (chamador decide o fallback).
+// Usado pra nunca deixar algo agendar/a IA sugerir uma data que já passou.
+export function semDataPassada(dateStr) {
+  if (!dateStr) return null;
+  return dateStr >= todayIso() ? dateStr : null;
+}
+
 export function formatDiaRelativo(dateStr) {
   const hoje = todayIso();
   if (dateStr === hoje) return 'Hoje';

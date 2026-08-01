@@ -54,16 +54,29 @@ export default function DatePickerPopover({ value, onSelect, onClose }) {
           if (cell.muted) return <View key={i} style={styles.dayCell} />;
           const isToday = cell.iso === hoje;
           const isChosen = cell.iso === value;
+          const isPast = cell.iso < hoje;
           return (
             <Pressable
               key={i}
-              style={[styles.dayCell, isChosen && styles.dayCellChosen, !isChosen && isToday && styles.dayCellToday]}
+              disabled={isPast}
+              style={[
+                styles.dayCell,
+                isChosen && styles.dayCellChosen,
+                !isChosen && isToday && styles.dayCellToday,
+              ]}
               onPress={() => {
                 onSelect(cell.iso);
                 onClose();
               }}
             >
-              <Text style={[styles.dayNum, isChosen && styles.dayNumChosen, !isChosen && isToday && styles.dayNumToday]}>
+              <Text
+                style={[
+                  styles.dayNum,
+                  isPast && styles.dayNumPast,
+                  isChosen && styles.dayNumChosen,
+                  !isChosen && isToday && styles.dayNumToday,
+                ]}
+              >
                 {cell.day}
               </Text>
             </Pressable>
@@ -182,6 +195,10 @@ const styles = StyleSheet.create({
   },
   dayNumToday: {
     color: COLORS.accent,
+  },
+  dayNumPast: {
+    color: COLORS.textSecondary,
+    opacity: 0.35,
   },
   dayNumChosen: {
     color: COLORS.bg,

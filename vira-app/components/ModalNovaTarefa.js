@@ -26,7 +26,7 @@ import {
 } from 'react-native';
 import DatePickerPopover from './DatePickerPopover';
 import ViraLogoSpinner from './ViraLogoSpinner';
-import { formatDiaCurto, todayIso } from '../lib/calendario';
+import { formatDiaCurto, semDataPassada, todayIso } from '../lib/calendario';
 import { pickRandom, TITULO_PLACEHOLDERS } from '../lib/copy';
 import { chamarSecretario } from '../lib/secretario';
 import { COLORS, PRIORIDADE_COLORS } from '../lib/theme';
@@ -133,7 +133,7 @@ export default function ModalNovaTarefa({
             espaco_id: t.espaco_id,
             prioridade: t.prioridade,
             hora: t.hora,
-            data_prevista: t.data_prevista || defaultDate || todayIso(),
+            data_prevista: semDataPassada(t.data_prevista) || defaultDate || todayIso(),
           });
         }
         onClose();
@@ -143,7 +143,7 @@ export default function ModalNovaTarefa({
       const resultado = lista[0];
       setTitulo(resultado.titulo);
       if (resultado.descricao) setDescricao(resultado.descricao);
-      if (resultado.data_prevista) setDataPrevista(resultado.data_prevista);
+      if (resultado.data_prevista) setDataPrevista(semDataPassada(resultado.data_prevista) || todayIso());
       if (resultado.hora) setHora(resultado.hora);
       if (resultado.espaco_id) setEspacoId(resultado.espaco_id);
       setPrioridade(resultado.prioridade);

@@ -183,6 +183,9 @@ export default function KanbanScreen({ tasks, espacos, areaAtuacao, onSetStatus,
     const acc = { fazer: [], andamento: [], concluido: [], atrasado: [] };
     tasks.forEach((t) => {
       if (espacoFiltro && t.espaco_id !== espacoFiltro) return;
+      // Tarefa com data futura só aparece no dia dela (tela Hoje, navegando o
+      // calendário) — não "vaza" pro Board antes da data chegar.
+      if (t.data_prevista && t.data_prevista > hoje) return;
       // Concluído só mostra o que foi terminado hoje — o resto vive no Histórico,
       // pra coluna não virar uma pilha infinita com o passar dos dias.
       if (t.status === 'concluido' && t.concluido_em?.slice(0, 10) !== hoje) return;
