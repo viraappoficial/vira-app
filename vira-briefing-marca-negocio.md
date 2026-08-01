@@ -215,7 +215,7 @@ A ideia do Gabriel é mais rica que um esquema de 2 papéis — é uma **hierarq
 
 - **Líder de organização (topo):** cria a organização, define os setores, vê tudo.
 - **Líder de setor:** vê as tarefas/agenda do próprio setor e de todos os sub-setores abaixo dele. Também é, ele mesmo, um colaborador (cria e cumpre as próprias tarefas normalmente).
-- **Colaborador:** usa o Vira normal — cria e gerencia suas tarefas. Pode compartilhar/transferir tarefa com colega do mesmo setor (com aceite de quem recebe, nunca atribuição forçada). Pode ter espaços pessoais dentro da mesma conta, com uma escolha explícita de **visibilidade**: por padrão, um espaço pessoal (ex: "Vida pessoal") fica 100% privado, mesmo dentro da organização; só fica visível pro líder se o próprio dono decidir marcar como visível.
+- **Colaborador:** usa o Vira normal — cria e gerencia suas tarefas. Pode compartilhar/transferir tarefa com colega do mesmo setor (com aceite de quem recebe, nunca atribuição forçada **entre pares**). Pode receber tarefa **atribuída diretamente** por quem lidera o setor (ver regra abaixo — essa sim não precisa de aceite). Pode ter espaços pessoais dentro da mesma conta, com uma escolha explícita de **visibilidade**: por padrão, um espaço pessoal (ex: "Vida pessoal") fica 100% privado, mesmo dentro da organização; só fica visível pro líder se o próprio dono decidir marcar como visível.
 - **Assistente (novo, fora da árvore de setores):** tem acesso à agenda de uma pessoa específica (tipicamente o líder do topo) pra ajudar a organizar — não é sobre ver um setor inteiro, é sobre ajudar 1 pessoa.
 
 ### Modelo de dados (novo, em cima do que já existe)
@@ -229,9 +229,22 @@ A ideia do Gabriel é mais rica que um esquema de 2 papéis — é uma **hierarq
 | `assistentes` | `assistente_id`, `assistido_id` — dá a uma pessoa acesso de gestão à agenda de outra, fora da hierarquia de setor |
 | `espacos.organizacao_id` | Nullable — preenchido quando o espaço é da organização (em vez de pessoal) |
 | `espacos.visivel_para_lider` | Boolean, default `false` — só um espaço marcado como `true` some da privacidade padrão e aparece pro líder |
-| `tarefas.responsavel_id` | Dono atual da tarefa (pode diferir de quem criou, após transferência aceita) |
-| `transferencias_tarefa` | `tarefa_id`, `remetente_id`, `destinatario_id`, `status` (`pendente`/`aceita`/`recusada`) |
-| `comentarios_tarefa` | `tarefa_id`, `autor_id`, `texto`, `anexo_url` (nullable, Supabase Storage), `criado_em` — pra compartilhar resultado/print numa tarefa, sem precisar de chat |
+| `tarefas.responsavel_id` | Dono atual da tarefa (pode diferir de quem criou, após transferência aceita ou atribuição direta) |
+| `tarefas.atribuido_por_id` | Nullable — preenchido quando um líder atribui a tarefa direto pra alguém (ver regra abaixo). `null` = tarefa criada pelo próprio dono, do jeito de sempre |
+| `transferencias_tarefa` | `tarefa_id`, `remetente_id`, `destinatario_id`, `status` (`pendente`/`aceita`/`recusada`) — só pra transferência **entre colegas do mesmo setor** |
+| `comentarios_tarefa` | `tarefa_id`, `autor_id`, `texto`, `anexo_url` (nullable, Supabase Storage), `criado_em` — pra compartilhar resultado/print numa tarefa; também usada como **log automático de edição** (ver abaixo) |
+
+### Atribuição direta (líder → colaborador) vs. transferência entre colegas
+
+Decisão importante desta rodada, que refina a regra de "sempre precisa de aceite" fechada antes: **aceite é entre pares; atribuição hierárquica é direta**.
+
+- **Líder atribui pra alguém do seu setor:** a tarefa nasce **já atribuída** (`responsavel_id` preenchido na hora, `atribuido_por_id` = o líder), sem precisar de aceite — é uma relação de trabalho normal, não faz sentido a pessoa "recusar" uma atribuição do próprio líder. Em troca, três garantias:
+  1. **Notificação imediata** — a pessoa recebe um push assim que a tarefa é atribuída ("[líder] te passou uma tarefa: Conciliar extrato"), reaproveitando a infraestrutura de push que já existe.
+  2. **Liberdade de editar** — quem recebe pode ajustar qualquer campo (data, horário, prioridade, título) — não é uma ordem travada, é uma tarefa normal, só que já nasceu com dono.
+  3. **Transparência de volta** — toda edição feita pelo responsável gera automaticamente um registro em `comentarios_tarefa` (ex: "Rafael mudou o horário de 14h pra 16h"), visível pra quem atribuiu. Não precisa de um sistema de auditoria separado — é a mesma tabela de comentários da Fase B fazendo dupla função.
+- **Colega transfere pra colega, dentro do mesmo setor:** continua exigindo aceite (`transferencias_tarefa`) — evita que alguém "empurre" trabalho pro colega sem combinar.
+
+Essa capacidade (atribuir direto) precisa existir **na tela normal, manualmente** — não é exclusiva da IA. O Secretário Executivo (ver "Papel da IA" abaixo) é só um jeito mais rápido de acionar a mesma coisa, por linguagem natural.
 
 **Como a visibilidade em árvore funciona tecnicamente:** com profundidade livre, "vê tudo abaixo de mim" precisa de uma consulta hierárquica eficiente — o jeito certo de fazer isso no Postgres é a extensão **`ltree`** (guarda o "caminho" de cada setor na árvore, tipo `empresa.vendas.loja1`, e permite consultar "tudo abaixo de vendas" com um índice rápido, em vez de subconsultas recursivas lentas). Isso é uma peça técnica concreta a mais em relação ao desenho anterior (que era só 2 níveis fixos) — mais correto a longo prazo, mas é o motivo de a Fase A ter ficado um pouco maior (ver roadmap abaixo).
 
@@ -252,10 +265,14 @@ Um relatório de "por que ficou parado" combina esses três — nenhum campo nov
 
 ### Papel da IA em modo organização
 
-Três extensões diretas de features que já existem, agora "olhando de cima" (agregado, não só individual):
+Quatro extensões, três diretas de features que já existem (agora "olhando de cima", agregado) e uma nova:
+
 1. **Resumo executivo do setor/organização** — extensão do "Resumo do dia" já existente, agregando o time inteiro pro líder.
 2. **Detecção de padrão em nível de setor** — o Vira já detecta padrão pessoal; em modo organização, generaliza pra "esse tipo de tarefa sempre atrasa nesse setor" (insight de gestão).
 3. **Quebrar tarefa com sugestão de responsável** — o "Quebrar tarefa" já existe pra 1 pessoa; em modo organização, pode sugerir pra quem do setor distribuir cada pedaço, baseado em quem está com menos tarefa pendente.
+4. **Secretário Executivo (novo)** — os três recursos de IA de hoje (Secretário, Resumo do dia, Quebrar tarefa) são "de uma tacada só": manda uma frase, recebe um resultado pronto. O Secretário Executivo é diferente — é uma **conversa** (histórico de idas e vindas), só disponível pra quem lidera, que consegue: perguntar sobre uma pessoa ("como tá a Ana essa semana?"), perguntar sobre um setor ("quantas tarefas atrasadas em Vendas?"), e **criar/atribuir tarefa pra outra pessoa por linguagem natural** ("cria uma tarefa pro Rafael revisar o orçamento até sexta") — usando exatamente a regra de atribuição direta acima (nasce atribuída, notifica, editável, com log de volta).
+
+   Tecnicamente, isso usa o recurso de **function calling** do Gemini (que já é o modelo usado no Vira) — em vez de só devolver JSON de uma vez, a IA recebe um conjunto de "ferramentas" (`consultar_pessoa`, `consultar_setor`, `criar_tarefa_para`) e decide sozinha qual usar de acordo com a pergunta. Cada ferramenta só enxerga o que a árvore de permissão já garante pro líder que está perguntando — a IA não tem acesso a mais dado do que a tela normal já mostraria.
 
 ### Fluxo de uso
 
@@ -283,10 +300,10 @@ Isso não muda o desenho do Modo Organização em si — mas é o motivo pelo qu
 Tela de **criação de organização** (é o primeiro passo, antes de convidar qualquer um), `organizacoes`, `setores` (com `ltree`), `membros_organizacao`, convite por link (a pessoa abre o link, cria a conta ali se ainda não tiver, e já entra na organização), migração de espaço pessoal existente → organizacional (pra permitir a Prime entrar no modo organização sem recriar do zero), `espacos.organizacao_id` + `visivel_para_lider`, tela de líder só de **leitura** (board agregado do setor, recursivo pros sub-setores). Sem transferência, sem comentário, sem relatório ainda.
 
 **Fase B — colaboração:**
-`comentarios_tarefa` (com anexo), `transferencias_tarefa` com fluxo de aceite, `tarefas.responsavel_id`, papel de `assistentes`.
+`comentarios_tarefa` (com anexo, e como log automático de edição), `transferencias_tarefa` com fluxo de aceite (entre colegas), atribuição direta líder → colaborador (`tarefas.responsavel_id` + `atribuido_por_id`, sem aceite, com notificação push), papel de `assistentes`.
 
 **Fase C — inteligência de gestão:**
-Relatórios agregados (conclusão, `vezes_adiada`, tempo parado) e as 3 extensões de IA acima. Só faz sentido depois que a Fase A e B provarem uso real.
+Relatórios agregados (conclusão, `vezes_adiada`, tempo parado), as 3 extensões de IA "olhando de cima", e o **Secretário Executivo** (chat com function calling — consultar pessoa/setor, criar e atribuir tarefa por linguagem natural). Só faz sentido depois que a Fase A e B provarem uso real — o Secretário Executivo em especial depende da atribuição direta (Fase B) já existir por baixo.
 
 **Fase D — cobrança por organização:**
 Hoje o plano pago (seção 7) é por conta individual. O líder da organização paga por tudo (decidido) — falta só decidir o valor e o modelo (preço fixo até N pessoas, ou por assento) quando chegar a hora, com base em custo e uso real. Deliberadamente por último: só decide preço depois que o produto provar que resolve a dor de verdade.
