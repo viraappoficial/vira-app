@@ -3,10 +3,14 @@
 -- Escopo desta migration: organizacoes, setores (árvore via ltree), membros_organizacao,
 -- convites_organizacao, e as extensões em espacos/tarefas necessárias pro líder enxergar
 -- o board do time. Fase B (comentários, atribuição, transferência) fica pra depois.
+--
+-- Todas as tabelas são criadas primeiro, e só depois as policies de RLS — várias
+-- policies fazem referência cruzada entre tabelas (ex: organizacoes referencia
+-- membros_organizacao), então a ordem importa.
 
 create extension if not exists ltree;
 
--- 1. Organizações -----------------------------------------------------------
+-- 1. Tabelas ------------------------------------------------------------------
 
 create table public.organizacoes (
   id uuid primary key default gen_random_uuid(),
@@ -17,34 +21,10 @@ create table public.organizacoes (
   criado_em timestamptz not null default now()
 );
 
-alter table public.organizacoes enable row level security;
-
-create policy "organizacoes_select" on public.organizacoes
-  for select using (
-    dono_id = (select auth.uid())
-    or exists (
-      select 1 from public.membros_organizacao m
-      where m.organizacao_id = organizacoes.id
-        and m.usuario_id = (select auth.uid())
-        and m.status = 'ativo'
-    )
-  );
-
-create policy "organizacoes_insert" on public.organizacoes
-  for insert with check (dono_id = (select auth.uid()));
-
-create policy "organizacoes_update" on public.organizacoes
-  for update using (dono_id = (select auth.uid()));
-
-create policy "organizacoes_delete" on public.organizacoes
-  for delete using (dono_id = (select auth.uid()));
-
--- 2. Setores (árvore de profundidade livre) ----------------------------------
 -- `caminho` guarda o materialized path (ex: raiz.vendas.loja1) — permite achar
 -- "tudo abaixo de X" com o operador <@ do ltree, em vez de CTE recursiva.
 -- Limitação conhecida da Fase A: mover um setor pra outro pai depois de criado
 -- não é suportado ainda (exigiria recalcular o caminho de toda a subárvore).
-
 create table public.setores (
   id uuid primary key default gen_random_uuid(),
   organizacao_id uuid not null references public.organizacoes (id) on delete cascade,
@@ -55,8 +35,43 @@ create table public.setores (
   criado_em timestamptz not null default now()
 );
 
+create table public.membros_organizacao (
+  id uuid primary key default gen_random_uuid(),
+  organizacao_id uuid not null references public.organizacoes (id) on delete cascade,
+  usuario_id uuid not null references auth.users (id) on delete cascade,
+  setor_id uuid not null references public.setores (id) on delete cascade,
+  papel text not null check (papel in ('lider', 'colaborador')),
+  status text not null default 'ativo' check (status in ('convidado', 'ativo', 'removido')),
+  criado_em timestamptz not null default now(),
+  unique (organizacao_id, usuario_id)
+);
+
+create table public.convites_organizacao (
+  id uuid primary key default gen_random_uuid(),
+  organizacao_id uuid not null references public.organizacoes (id) on delete cascade,
+  setor_id uuid not null references public.setores (id) on delete cascade,
+  token text not null unique,
+  papel text not null default 'colaborador' check (papel in ('lider', 'colaborador')),
+  status text not null default 'pendente' check (status in ('pendente', 'aceito', 'revogado')),
+  criado_por uuid not null references auth.users (id),
+  criado_em timestamptz not null default now(),
+  expira_em timestamptz not null default (now() + interval '30 days')
+);
+
+alter table public.espacos
+  add column organizacao_id uuid references public.organizacoes (id) on delete set null,
+  add column visivel_para_lider boolean not null default false;
+
+-- 2. Índices --------------------------------------------------------------------
+
 create index setores_organizacao_id_idx on public.setores (organizacao_id);
 create index setores_caminho_idx on public.setores using gist (caminho);
+create index membros_organizacao_usuario_id_idx on public.membros_organizacao (usuario_id);
+create index membros_organizacao_setor_id_idx on public.membros_organizacao (setor_id);
+create index convites_organizacao_token_idx on public.convites_organizacao (token);
+create index espacos_organizacao_id_idx on public.espacos (organizacao_id);
+
+-- 3. Trigger — calcula o caminho (ltree) de cada setor na criação -------------
 
 create function public.setores_calcular_caminho() returns trigger as $$
 begin
@@ -79,7 +94,32 @@ create trigger trg_setores_calcular_caminho
   before insert on public.setores
   for each row execute function public.setores_calcular_caminho();
 
+-- 4. RLS --------------------------------------------------------------------
+
+alter table public.organizacoes enable row level security;
 alter table public.setores enable row level security;
+alter table public.membros_organizacao enable row level security;
+alter table public.convites_organizacao enable row level security;
+
+create policy "organizacoes_select" on public.organizacoes
+  for select using (
+    dono_id = (select auth.uid())
+    or exists (
+      select 1 from public.membros_organizacao m
+      where m.organizacao_id = organizacoes.id
+        and m.usuario_id = (select auth.uid())
+        and m.status = 'ativo'
+    )
+  );
+
+create policy "organizacoes_insert" on public.organizacoes
+  for insert with check (dono_id = (select auth.uid()));
+
+create policy "organizacoes_update" on public.organizacoes
+  for update using (dono_id = (select auth.uid()));
+
+create policy "organizacoes_delete" on public.organizacoes
+  for delete using (dono_id = (select auth.uid()));
 
 -- Nome/estrutura dos setores não é dado sensível — qualquer membro ativo
 -- da organização enxerga a lista inteira (precisa pra navegação/filtro).
@@ -128,24 +168,6 @@ create policy "setores_delete" on public.setores
     )
   );
 
--- 3. Membros da organização --------------------------------------------------
-
-create table public.membros_organizacao (
-  id uuid primary key default gen_random_uuid(),
-  organizacao_id uuid not null references public.organizacoes (id) on delete cascade,
-  usuario_id uuid not null references auth.users (id) on delete cascade,
-  setor_id uuid not null references public.setores (id) on delete cascade,
-  papel text not null check (papel in ('lider', 'colaborador')),
-  status text not null default 'ativo' check (status in ('convidado', 'ativo', 'removido')),
-  criado_em timestamptz not null default now(),
-  unique (organizacao_id, usuario_id)
-);
-
-create index membros_organizacao_usuario_id_idx on public.membros_organizacao (usuario_id);
-create index membros_organizacao_setor_id_idx on public.membros_organizacao (setor_id);
-
-alter table public.membros_organizacao enable row level security;
-
 -- Cada um vê a própria linha; líder vê todo mundo do seu setor pra baixo
 -- (usando o caminho do setor de quem lidera vs. o caminho do setor do membro).
 create policy "membros_organizacao_select" on public.membros_organizacao
@@ -171,24 +193,6 @@ create policy "membros_organizacao_select" on public.membros_organizacao
 -- Inserção/atualização de membro só acontece via Edge Function com service
 -- role (fluxo de convite) — não expomos insert/update direto pro cliente
 -- ainda na Fase A, pra não precisar validar convite dentro de RLS.
-
--- 4. Convites -----------------------------------------------------------------
-
-create table public.convites_organizacao (
-  id uuid primary key default gen_random_uuid(),
-  organizacao_id uuid not null references public.organizacoes (id) on delete cascade,
-  setor_id uuid not null references public.setores (id) on delete cascade,
-  token text not null unique,
-  papel text not null default 'colaborador' check (papel in ('lider', 'colaborador')),
-  status text not null default 'pendente' check (status in ('pendente', 'aceito', 'revogado')),
-  criado_por uuid not null references auth.users (id),
-  criado_em timestamptz not null default now(),
-  expira_em timestamptz not null default (now() + interval '30 days')
-);
-
-create index convites_organizacao_token_idx on public.convites_organizacao (token);
-
-alter table public.convites_organizacao enable row level security;
 
 -- Só líder/dono enxerga a lista de convites da própria organização.
 -- Validar um token específico (antes do cadastro) passa pela Edge Function
@@ -233,14 +237,6 @@ create policy "convites_organizacao_update" on public.convites_organizacao
       where o.id = convites_organizacao.organizacao_id and o.dono_id = (select auth.uid())
     )
   );
-
--- 5. Extensões em espacos e tarefas -------------------------------------------
-
-alter table public.espacos
-  add column organizacao_id uuid references public.organizacoes (id) on delete set null,
-  add column visivel_para_lider boolean not null default false;
-
-create index espacos_organizacao_id_idx on public.espacos (organizacao_id);
 
 -- Líder enxerga (só leitura, via política já existente + esta nova) as tarefas
 -- de quem está no seu setor pra baixo, mas só as que vivem num espaço marcado
