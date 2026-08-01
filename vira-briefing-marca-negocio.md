@@ -198,27 +198,68 @@ Ao cadastrar um espaço (empresa ou área pessoal), o usuário pode opcionalment
 
 ---
 
-## 7.6 Visão futura: Vira para equipes/organizações (registrado — não é escopo atual)
+## 7.6 Modo Organização — Vira para equipes/empresas (desenhado — pronto pra construir quando fizer sentido)
 
-Expansão da Fase 5 do roadmap original ("modo compartilhado — board visível pra funcionário/sócio"), com estrutura mais robusta: uma empresa assina o Vira, um coordenador/admin enxerga status de tarefas e agendas de todos os colaboradores, e tarefas podem ser compartilhadas ou **transferidas** (a transferência exige aceite de quem recebe — não é atribuição unilateral).
+> Atualizado nesta rodada: essa ideia estava só registrada como visão de longo prazo. A pedido do Gabriel, ela foi desenhada em detalhe — modelo de dados, papéis, fluxo de convite e um roadmap faseado — pra não se perder. Isso **não significa que já vamos construir**: é a base pronta pra quando a decisão de "bora fazer" for tomada, sem precisar reinventar o desenho do zero.
 
-**Papéis:**
-- **Administrador/coordenador:** visibilidade total sobre tarefas e agendas do grupo
-- **Colaborador:** cria suas tarefas; pode compartilhar ou transferir (com aceite do destinatário)
+### O que é
 
-**Estrutura de dados prevista (nova camada sobre a atual):**
+Hoje o Vira é 100% individual: cada conta só enxerga os próprios espaços e tarefas (RLS por `usuario_id`). Modo Organização adiciona uma segunda forma de conta: várias pessoas (ex: funcionários da Prime) logam cada uma com seu próprio login, mas todas dentro de uma **organização** compartilhada — e quem administra enxerga o trabalho de todo mundo.
+
+Expande a Fase 5 do roadmap original ("modo compartilhado — board visível pra funcionário/sócio").
+
+### Papéis
+
+- **Administrador/coordenador:** cria a organização, convida membros, tem visibilidade total sobre tarefas e agendas de todo o grupo.
+- **Colaborador:** loga normal, cria e gerencia suas próprias tarefas (a experiência de uso não muda pra ele); pode receber tarefas transferidas/atribuídas pelo admin, e pode transferir tarefas suas pra outra pessoa — mas **toda transferência exige aceite de quem recebe** (nunca é atribuição forçada, unilateral).
+
+### Modelo de dados (novo, em cima do que já existe)
+
 | Tabela | Função |
 |---|---|
-| `organizacoes` | Empresa que assina o Vira (nome, plano) |
-| `membros_organizacao` | Usuário → organização, com papel (`admin` / `colaborador`) |
-| `tarefas.responsavel_id` | Novo campo — dono atual da tarefa (pode diferir de quem criou) |
-| `transferencias_tarefa` | Convite de transferência: tarefa, remetente, destinatário, status (`pendente`/`aceita`/`recusada`) |
+| `organizacoes` | A organização em si — `id`, `nome`, `dono_id` (usuário que criou/paga), `plano`, `criado_em` |
+| `membros_organizacao` | Ligação usuário ↔ organização, com `papel` (`admin` / `colaborador`) e `status` (`convidado` / `ativo` / `removido`) |
+| `convites_organizacao` | Convite pendente — `organizacao_id`, `email`, `token`, `status`, `expira_em`. Existe **antes** da pessoa convidada ter conta, pra permitir convidar por link/e-mail sem precisar que o convidado já esteja cadastrado |
+| `espacos.organizacao_id` | Novo campo (nullable) — `null` = espaço pessoal de sempre; preenchido = espaço pertence à organização, visível pro admin |
+| `tarefas.responsavel_id` | Novo campo — quem é o dono **atual** da tarefa (pode ser diferente de quem criou, depois de uma transferência aceita) |
+| `transferencias_tarefa` | Convite de transferência de uma tarefa específica — `tarefa_id`, `remetente_id`, `destinatario_id`, `status` (`pendente`/`aceita`/`recusada`) |
 
-Tecnicamente viável via **Row Level Security (RLS)** do Postgres/Supabase — regras de visibilidade (admin vê tudo da organização, colaborador só vê o que é seu ou compartilhado) definidas direto no banco.
+**Como funciona a visibilidade (RLS no Postgres/Supabase):**
+- Um espaço pessoal (`organizacao_id = null`) continua 100% privado, exatamente como hoje.
+- Um espaço de organização é visível pra: (a) o admin da organização, sempre; (b) o colaborador dono da tarefa (`responsavel_id`); (c) quem criou a tarefa, mesmo que já tenha transferido.
+- Isso é tecnicamente direto — mais uma política de RLS por tabela, sem precisar mudar a arquitetura atual. O que já existe (espaços pessoais, tarefas, modelos) não é afetado; a organização é uma camada adicional, opcional.
 
-**Implicação de negócio:** exigiria um terceiro degrau no modelo de preço além de Free/Pago (seção 7) — um plano Empresa/Time, por assento ou por organização, já que é um produto de valor bem maior pra quem gerencia gente.
+### Fluxo de uso (do ponto de vista de quem administra)
 
-**Status:** ideia registrada como visão de produto de médio/longo prazo. Não entra no escopo da validação pessoal atual (uso próprio, dogfooding, seção 7.3) — é Fase 5+ do roadmap.
+1. No onboarding (ou depois, nas configurações), a pessoa escolhe "Criar organização" e dá um nome (ex: "Prime").
+2. Vira admin dessa organização automaticamente.
+3. Convida colaboradores por link de convite (mais simples de construir primeiro) ou e-mail (precisa de um provedor de e-mail transacional, tipo Resend — não é o SMTP limitado do Supabase Auth).
+4. Colaborador aceita o convite — se já tem conta Vira, só entra na organização; se não tem, cria a conta e já entra direto.
+5. Admin ganha uma tela nova ("Equipe" ou "Organização") que mostra o board/agenda de todo mundo, filtrável por pessoa.
+
+### Roadmap faseado (pra não precisar construir tudo de uma vez)
+
+**Fase A — visibilidade (o MVP real, o que já resolve 80% da dor):**
+`organizacoes`, `membros_organizacao`, convite por link (sem e-mail ainda), `espacos.organizacao_id`, e uma tela de admin só de **leitura** — vê o board de cada colaborador. Sem transferência de tarefa ainda.
+
+**Fase B — transferência/atribuição:**
+`transferencias_tarefa`, fluxo de aceite, `tarefas.responsavel_id`. Admin (ou colega) pode sugerir uma tarefa pra outra pessoa.
+
+**Fase C — cobrança por organização:**
+Hoje o plano pago (seção 7) é por conta individual. Organização precisa de cobrança própria — por assento (preço × nº de colaboradores) ou por organização (preço fixo, até N pessoas). Isso é decisão de preço nova, separada da seção 7.8, e só faz sentido depois que a Fase A provar que o modo é usado de verdade.
+
+### O que falta decidir antes de começar a Fase A
+
+- **Convite por link ou e-mail primeiro?** Link é mais rápido de construir (nenhuma dependência externa); e-mail precisa de um provedor transacional.
+- **Um espaço pode "virar" organizacional depois de já existir, ou só espaços novos?** (afeta se dá pra migrar a Prime, que já existe hoje, pro modo organização sem recriar do zero).
+- **O admin também é "colaborador" dentro da própria organização** (cria tarefas própria dele) ou só administra? (a resposta natural é: sim, ele também usa normal, só que enxerga o resto também).
+- **Quem paga:** só o admin/dono da organização, ou cada colaborador paga sua própria "cadeira"? Afeta o modelo de cobrança da Fase C.
+
+### Resposta direta: dá pra construir?
+
+Sim — tecnicamente é só uma camada nova de tabelas + RLS em cima do que já existe hoje (nada do banco atual precisa mudar de arquitetura). O trabalho real está mais no fluxo de convite/aceite e na tela nova de admin do que em risco técnico. A Fase A sozinha (visibilidade, sem transferência) é um escopo de poucos dias de trabalho, não um projeto grande — dá pra fazer quando você decidir que é hora, sem precisar redesenhar nada disso de novo.
+
+**Status:** desenho fechado, pronto pra virar tarefa técnica quando o Gabriel disser "bora". Ainda não implementado.
 
 ---
 
