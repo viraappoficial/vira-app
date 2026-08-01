@@ -71,8 +71,10 @@ export function useViraData(userId) {
     return { data, error };
   }
 
-  async function updateEspaco(espacoId, { nome, cor, logo_url }) {
+  async function updateEspaco(espacoId, { nome, cor, logo_url, organizacao_id, visivel_para_lider }) {
     const payload = { nome, cor, logo_url: logo_url || null };
+    if (organizacao_id !== undefined) payload.organizacao_id = organizacao_id;
+    if (visivel_para_lider !== undefined) payload.visivel_para_lider = visivel_para_lider;
     setEspacos((prev) => ({ ...prev, [espacoId]: { ...prev[espacoId], ...payload } }));
     const { error } = await supabase.from('espacos').update(payload).eq('id', espacoId);
     if (error) await loadData();

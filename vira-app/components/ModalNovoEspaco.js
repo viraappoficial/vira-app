@@ -1,13 +1,24 @@
 import * as ImagePicker from 'expo-image-picker';
-import { ArrowLeft, Check, Trash2, Upload, X } from 'lucide-react-native';
+import { ArrowLeft, Building2, Check, Trash2, Upload, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { buscarMinhaOrganizacao } from '../lib/organizacao';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../lib/theme';
 
 const CORES_SUGERIDAS = ['#D9A544', '#3FAE72', '#8E6FE8', '#E86F9C', '#5B8CFF', '#4FC98A'];
 
-export default function ModalNovoEspaco({ visible, userId, espaco, onClose, onBack, onCreate, onUpdate, onDelete }) {
+export default function ModalNovoEspaco({
+  visible,
+  userId,
+  espaco,
+  onClose,
+  onBack,
+  onCreate,
+  onUpdate,
+  onUpdateSemFechar,
+  onDelete,
+}) {
   const isEdit = !!espaco;
   const [nome, setNome] = useState('');
   const [cor, setCor] = useState(CORES_SUGERIDAS[0]);
@@ -15,6 +26,10 @@ export default function ModalNovoEspaco({ visible, userId, espaco, onClose, onBa
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [minhaOrganizacao, setMinhaOrganizacao] = useState(null);
+  const [organizacaoIdEspaco, setOrganizacaoIdEspaco] = useState(null);
+  const [visivelParaLider, setVisivelParaLider] = useState(false);
+  const [vinculando, setVinculando] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -24,12 +39,50 @@ export default function ModalNovoEspaco({ visible, userId, espaco, onClose, onBa
       setNome(espaco.nome || '');
       setCor(espaco.cor || CORES_SUGERIDAS[0]);
       setLogoUrl(espaco.logo_url || null);
+      setOrganizacaoIdEspaco(espaco.organizacao_id || null);
+      setVisivelParaLider(!!espaco.visivel_para_lider);
     } else {
       setNome('');
       setCor(CORES_SUGERIDAS[0]);
       setLogoUrl(null);
+      setOrganizacaoIdEspaco(null);
+      setVisivelParaLider(false);
     }
   }, [visible, espaco]);
+
+  useEffect(() => {
+    if (!visible || !espaco) return;
+    buscarMinhaOrganizacao(userId)
+      .then(setMinhaOrganizacao)
+      .catch(() => setMinhaOrganizacao(null));
+  }, [visible, espaco, userId]);
+
+  async function handleVincularOrganizacao() {
+    if (!minhaOrganizacao || vinculando) return;
+    setVinculando(true);
+    const { error } = await onUpdateSemFechar(espaco.id, {
+      nome: nome.trim(),
+      cor,
+      logo_url: logoUrl,
+      organizacao_id: minhaOrganizacao.id,
+    });
+    if (!error) setOrganizacaoIdEspaco(minhaOrganizacao.id);
+    setVinculando(false);
+  }
+
+  async function handleToggleVisivel() {
+    if (vinculando) return;
+    setVinculando(true);
+    const novoValor = !visivelParaLider;
+    const { error } = await onUpdateSemFechar(espaco.id, {
+      nome: nome.trim(),
+      cor,
+      logo_url: logoUrl,
+      visivel_para_lider: novoValor,
+    });
+    if (!error) setVisivelParaLider(novoValor);
+    setVinculando(false);
+  }
 
   async function uploadToStorage(body, ext, contentType) {
     setUploading(true);
@@ -173,6 +226,47 @@ export default function ModalNovoEspaco({ visible, userId, espaco, onClose, onBa
           ))}
         </View>
 
+        {isEdit && minhaOrganizacao && (
+          <View style={styles.orgSection}>
+            {organizacaoIdEspaco === minhaOrganizacao.id ? (
+              <>
+                <View style={styles.orgLinkedRow}>
+                  <Building2 size={14} color={minhaOrganizacao.cor} />
+                  <Text style={styles.orgLinkedText}>Vinculado a {minhaOrganizacao.nome}</Text>
+                </View>
+                <Pressable
+                  onPress={handleToggleVisivel}
+                  disabled={vinculando}
+                  style={styles.orgVisivelRow}
+                >
+                  <View style={styles.orgVisivelTextBox}>
+                    <Text style={styles.orgVisivelLabel}>Visível pro líder</Text>
+                    <Text style={styles.orgVisivelHint}>
+                      {visivelParaLider
+                        ? 'O líder vê as tarefas desse espaço.'
+                        : 'Continua privado, mesmo dentro da organização.'}
+                    </Text>
+                  </View>
+                  <View style={[styles.orgSwitch, visivelParaLider && styles.orgSwitchOn]}>
+                    <View style={[styles.orgKnob, visivelParaLider && styles.orgKnobOn]} />
+                  </View>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable onPress={handleVincularOrganizacao} disabled={vinculando} style={styles.orgVincularButton}>
+                {vinculando ? (
+                  <ActivityIndicator color={COLORS.accent} size="small" />
+                ) : (
+                  <>
+                    <Building2 size={14} color={COLORS.accent} />
+                    <Text style={styles.orgVincularButtonText}>Vincular a {minhaOrganizacao.nome}</Text>
+                  </>
+                )}
+              </Pressable>
+            )}
+          </View>
+        )}
+
         <Pressable
           onPress={handleSalvar}
           disabled={!nome.trim() || saving}
@@ -300,6 +394,81 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  orgSection: {
+    marginBottom: 20,
+  },
+  orgVincularButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  orgVincularButtonText: {
+    color: COLORS.accent,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  orgLinkedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  orgLinkedText: {
+    color: COLORS.textSecondary,
+    fontSize: 12.5,
+    fontWeight: '500',
+  },
+  orgVisivelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  orgVisivelTextBox: {
+    flex: 1,
+    minWidth: 0,
+  },
+  orgVisivelLabel: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  orgVisivelHint: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  orgSwitch: {
+    width: 36,
+    height: 20,
+    borderRadius: 999,
+    backgroundColor: COLORS.border,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  orgSwitchOn: {
+    backgroundColor: COLORS.accent,
+  },
+  orgKnob: {
+    width: 16,
+    height: 16,
+    borderRadius: 999,
+    backgroundColor: COLORS.text,
+  },
+  orgKnobOn: {
+    transform: [{ translateX: 16 }],
   },
   button: {
     backgroundColor: COLORS.accent,
