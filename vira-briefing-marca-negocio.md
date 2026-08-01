@@ -265,10 +265,22 @@ Três extensões diretas de features que já existem, agora "olhando de cima" (a
 4. Dentro da própria conta, a pessoa organiza a vida do trabalho **e** pode ter espaços pessoais à parte, escolhendo se ficam visíveis pro líder ou não.
 5. Líder de cada setor (e o topo, pra tudo) ganham uma tela de "Equipe"/"Organização" com o board agregado, relatórios, e resumo por IA.
 
+### Visão estratégica: Vira como plataforma pros negócios do Gabriel (registrado — fora do escopo técnico agora)
+
+Decisão importante que apareceu nesta rodada: o Gabriel não quer só "a Prime usando modo organização" — a visão é o Vira virar a **camada de organização/agenda por trás de outros SaaS que ele constrói**. Ou seja: a Prime (que já existe) vira organizacional dentro do Vira, e **futuros produtos SaaS dele podem integrar com o Vira** em vez de cada um reinventar agenda/tarefa do zero.
+
+Isso não muda o desenho do Modo Organização em si — mas é o motivo pelo qual vale a pena, quando chegar a hora, pensar em **API pública** (não só telas dentro do app) pra permitir que outro sistema crie organização, convide gente, crie/consulte tarefa via integração. Registrado aqui como visão de longo prazo, não como requisito da Fase A — a Fase A já entrega o suficiente pra Prime usar via app normal, sem precisar de API externa ainda.
+
+### Decisões fechadas (respondidas pelo Gabriel)
+
+- **Espaço existente pode virar organizacional:** sim — a Prime (espaço que já existe hoje) pode ser convertida em organizacional depois, sem precisar recriar do zero. Isso vira um requisito real da Fase A: a migração de espaço pessoal → organizacional precisa ser suportada, não só criação de espaço organizacional novo.
+- **Convite:** por link. Pessoa acessa o link, cria a conta ali (se ainda não tiver) e já entra direto na organização/setor. Confirma que a Fase A precisa entregar a tela de **criação de organização** também (não só o convite) — é o primeiro passo, antes de convidar alguém.
+- **Cobrança (Fase D, quando chegar):** o líder da organização paga por tudo — não é por assento nem cada colaborador paga a própria cadeira.
+
 ### Roadmap faseado
 
 **Fase A — estrutura + visibilidade (o alicerce):**
-`organizacoes`, `setores` (com `ltree`), `membros_organizacao`, convite por link, `espacos.organizacao_id` + `visivel_para_lider`, tela de líder só de **leitura** (board agregado do setor, recursivo pros sub-setores). Sem transferência, sem comentário, sem relatório ainda.
+Tela de **criação de organização** (é o primeiro passo, antes de convidar qualquer um), `organizacoes`, `setores` (com `ltree`), `membros_organizacao`, convite por link (a pessoa abre o link, cria a conta ali se ainda não tiver, e já entra na organização), migração de espaço pessoal existente → organizacional (pra permitir a Prime entrar no modo organização sem recriar do zero), `espacos.organizacao_id` + `visivel_para_lider`, tela de líder só de **leitura** (board agregado do setor, recursivo pros sub-setores). Sem transferência, sem comentário, sem relatório ainda.
 
 **Fase B — colaboração:**
 `comentarios_tarefa` (com anexo), `transferencias_tarefa` com fluxo de aceite, `tarefas.responsavel_id`, papel de `assistentes`.
@@ -277,19 +289,13 @@ Três extensões diretas de features que já existem, agora "olhando de cima" (a
 Relatórios agregados (conclusão, `vezes_adiada`, tempo parado) e as 3 extensões de IA acima. Só faz sentido depois que a Fase A e B provarem uso real.
 
 **Fase D — cobrança por organização:**
-Hoje o plano pago (seção 7) é por conta individual. Precisa de um modelo novo — por assento (preço × nº de colaboradores) ou por organização (preço fixo até N pessoas) — e decidir quem paga (só o líder do topo, ou cada setor tem seu próprio orçamento). Deliberadamente por último: só decide preço depois que o produto provar que resolve a dor de verdade.
-
-### O que falta decidir (não trava o desenho, mas trava o começo da Fase A)
-
-- **Um espaço que já existe hoje (a Prime) pode "virar" organizacional depois, ou modo organização só vale pra espaço novo?** Afeta se dá pra migrar o uso atual sem recriar do zero.
-- **Convite por link ou e-mail primeiro?** Link é mais rápido de construir (zero dependência externa); e-mail precisa de um provedor transacional (tipo Resend).
-- **Quem paga, quando chegar na Fase D:** só o líder do topo, ou cada setor/pessoa?
+Hoje o plano pago (seção 7) é por conta individual. O líder da organização paga por tudo (decidido) — falta só decidir o valor e o modelo (preço fixo até N pessoas, ou por assento) quando chegar a hora, com base em custo e uso real. Deliberadamente por último: só decide preço depois que o produto provar que resolve a dor de verdade.
 
 ### Resposta direta: dá pra construir?
 
 Sim. A peça tecnicamente nova em relação à v1 do desenho é a árvore de profundidade livre (via `ltree`) — é mais correta a longo prazo, mas é trabalho real de banco de dados, não always risco de "não sabemos fazer". Nada da arquitetura atual do Vira muda: espaço pessoal, tarefa, modelo continuam existindo exatamente como hoje — modo organização é uma camada por cima, opcional, que só existe pra quem cria/entra numa organização.
 
-**Status:** desenho fechado (pirâmide de profundidade livre + comentários por tarefa, decididos com o Gabriel), pronto pra virar tarefa técnica quando ele disser "bora". Ainda não implementado.
+**Status:** desenho fechado, todas as decisões de arquitetura e de negócio da Fase A respondidas (pirâmide de profundidade livre, comentários por tarefa, migração da Prime, convite por link, cobrança pelo líder). Pronto pra virar tarefa técnica quando o Gabriel disser "bora". Ainda não implementado.
 
 ---
 
