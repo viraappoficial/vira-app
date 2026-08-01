@@ -278,6 +278,7 @@ function MainApp({ session }) {
           const { error } = await data.updateEspaco(id, payload);
           if (!error) setEspacoModal(undefined);
         }}
+        onUpdateSemFechar={(id, payload) => data.updateEspaco(id, payload)}
         onDelete={async (id) => {
           const { error } = await data.deleteEspaco(id);
           if (!error) setEspacoModal(undefined);
