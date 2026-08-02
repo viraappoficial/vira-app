@@ -78,6 +78,7 @@ export default function ModalNovaTarefa({
   const [dataPrevista, setDataPrevista] = useState(todayIso());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [salvarErro, setSalvarErro] = useState(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [salvandoModelo, setSalvandoModelo] = useState(false);
   const [secretarioLoading, setSecretarioLoading] = useState(false);
@@ -170,6 +171,7 @@ export default function ModalNovaTarefa({
   async function handleSalvar() {
     if (!titulo.trim() || saving) return;
     setSaving(true);
+    setSalvarErro(null);
     const horaValida = /^([01]\d|2[0-3]):([0-5]\d)$/.test(hora) ? hora : null;
     const payload = {
       titulo: titulo.trim(),
@@ -179,11 +181,8 @@ export default function ModalNovaTarefa({
       hora: horaValida,
       data_prevista: dataPrevista,
     };
-    if (isEdit) {
-      await onUpdate(task.id, { ...payload, status });
-    } else {
-      await onCreate(payload);
-    }
+    const erro = isEdit ? await onUpdate(task.id, { ...payload, status }) : await onCreate(payload);
+    if (erro) setSalvarErro(erro.message || 'Não deu pra salvar agora. Tenta de novo.');
     setSaving(false);
   }
 
@@ -405,6 +404,8 @@ export default function ModalNovaTarefa({
               </View>
             </>
           )}
+
+          {salvarErro && <Text style={styles.salvarErro}>{salvarErro}</Text>}
 
           <Pressable
             onPress={handleSalvar}
@@ -685,6 +686,12 @@ const styles = StyleSheet.create({
     color: COLORS.bg,
     fontSize: 15,
     fontWeight: '600',
+  },
+  salvarErro: {
+    color: COLORS.atrasado,
+    fontSize: 12,
+    marginBottom: 10,
+    textAlign: 'center',
   },
   deleteButton: {
     flexDirection: 'row',
