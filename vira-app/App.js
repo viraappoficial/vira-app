@@ -227,12 +227,14 @@ function MainApp({ session }) {
         onCreate={async (payload) => {
           const { error } = await data.createTarefa(payload);
           if (!error) setTaskModal(undefined);
+          return error;
         }}
         onUpdate={async (id, payload) => {
           const tinhaConcluido = taskModal && taskModal.status === 'concluido';
           if (payload.status === 'concluido' && !tinhaConcluido) celebrate();
           const { error } = await data.updateTarefa(id, payload);
           if (!error) setTaskModal(undefined);
+          return error;
         }}
         onDelete={async (id) => {
           const { error } = await data.deleteTarefa(id);
