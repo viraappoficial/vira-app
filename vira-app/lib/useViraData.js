@@ -16,7 +16,12 @@ export function useViraData(userId) {
   const loadData = useCallback(async () => {
     const [espacosRes, tarefasRes, modelosRes] = await Promise.all([
       supabase.from('espacos').select('*'),
-      supabase.from('tarefas').select('*').order('data_prevista', { ascending: true }),
+      // Filtro explícito por usuario_id — sem isso, a tela pessoal (Hoje/Board)
+      // passaria a misturar tarefas de outras pessoas da organização, já que a
+      // RLS agora também permite o líder enxergar quem está no setor dele.
+      // Tarefas da organização (de outras pessoas) só aparecem na tela Equipe,
+      // que faz uma consulta própria, separada dessa.
+      supabase.from('tarefas').select('*').eq('usuario_id', userId).order('data_prevista', { ascending: true }),
       supabase.from('modelos').select('*'),
     ]);
 
