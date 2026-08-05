@@ -133,6 +133,21 @@ export async function listarMembros(organizacaoId) {
   return data;
 }
 
+// Mover pra outro setor (setorId) e/ou remover (status: 'inativo'). A RLS só
+// deixa quem lidera o setor atual do membro fazer isso, e se for mudar de
+// setor precisa liderar o setor de destino também.
+export async function atualizarMembro(organizacaoId, usuarioId, { setorId, status } = {}) {
+  const payload = {};
+  if (setorId !== undefined) payload.setor_id = setorId;
+  if (status !== undefined) payload.status = status;
+  const { error } = await supabase
+    .from('membros_organizacao')
+    .update(payload)
+    .eq('organizacao_id', organizacaoId)
+    .eq('usuario_id', usuarioId);
+  if (error) throw error;
+}
+
 // Tarefas do espaço compartilhado de um setor, já com o nome de quem é
 // responsável por cada uma (guardado em membros_organizacao.nome_exibicao,
 // já que não dá pra "olhar" o nome de outra conta direto).
