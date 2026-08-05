@@ -1,7 +1,7 @@
-import { Bell, BellOff, Building2, Home as HomeIcon, Plus, ShieldAlert, X } from 'lucide-react-native';
+import { Bell, BellOff, Building2, Copy, Home as HomeIcon, Plus, ShieldAlert, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { buscarMinhaOrganizacao } from '../lib/organizacao';
+import { buscarMinhaOrganizacao, buscarSetorPrincipal, criarConvite, linkConvite } from '../lib/organizacao';
 import { ativarNotificacoes, desativarNotificacoes, notificacoesAtivas, pushSuportado, statusPermissao } from '../lib/push';
 import { COLORS } from '../lib/theme';
 import ModalNovaOrganizacao from './ModalNovaOrganizacao';
@@ -28,6 +28,10 @@ export default function ModalEspacos({
   const [excluirErro, setExcluirErro] = useState(null);
   const [minhaOrganizacao, setMinhaOrganizacao] = useState(undefined); // undefined = carregando
   const [novaOrgVisivel, setNovaOrgVisivel] = useState(false);
+  const [gerandoConvite, setGerandoConvite] = useState(false);
+  const [linkGerado, setLinkGerado] = useState(null);
+  const [conviteErro, setConviteErro] = useState(null);
+  const [linkCopiado, setLinkCopiado] = useState(false);
 
   useEffect(() => {
     if (!visible || !pushSuportado()) return;
@@ -63,6 +67,35 @@ export default function ModalEspacos({
       setNotifErro(err.message);
     } finally {
       setNotifCarregando(false);
+    }
+  }
+
+  async function handleGerarConvite() {
+    if (!minhaOrganizacao || gerandoConvite) return;
+    setGerandoConvite(true);
+    setConviteErro(null);
+    try {
+      const setor = await buscarSetorPrincipal(minhaOrganizacao.id);
+      if (!setor) throw new Error('Não achei o setor pra convidar. Tenta de novo em instantes.');
+      const convite = await criarConvite({ organizacaoId: minhaOrganizacao.id, setorId: setor.id, criadoPor: userId });
+      setLinkGerado(linkConvite(convite.token));
+      setLinkCopiado(false);
+    } catch (err) {
+      setConviteErro(err.message || 'Não deu pra gerar o convite agora.');
+    } finally {
+      setGerandoConvite(false);
+    }
+  }
+
+  async function handleCopiarLink() {
+    if (!linkGerado) return;
+    try {
+      await navigator.clipboard.writeText(linkGerado);
+      setLinkCopiado(true);
+      setTimeout(() => setLinkCopiado(false), 2000);
+    } catch {
+      // Alguns navegadores bloqueiam clipboard fora de gesto direto do usuário —
+      // o link continua visível na tela pra copiar manualmente.
     }
   }
 
@@ -138,7 +171,31 @@ export default function ModalEspacos({
                   <Text style={styles.notifSubtext}>Você lidera essa organização.</Text>
                 </View>
               </View>
-            ) : (
+            ) : null}
+
+            {minhaOrganizacao && !linkGerado && (
+              <Pressable onPress={handleGerarConvite} disabled={gerandoConvite} style={styles.conviteButton}>
+                <Text style={styles.conviteButtonText}>
+                  {gerandoConvite ? 'Gerando link...' : 'Convidar pra organização'}
+                </Text>
+              </Pressable>
+            )}
+
+            {linkGerado && (
+              <View style={styles.conviteLinkBox}>
+                <Text style={styles.conviteLinkText} numberOfLines={1}>
+                  {linkGerado}
+                </Text>
+                <Pressable onPress={handleCopiarLink} style={styles.conviteCopyButton} hitSlop={6}>
+                  <Copy size={13} color={COLORS.accent} />
+                  <Text style={styles.conviteCopyButtonText}>{linkCopiado ? 'Copiado!' : 'Copiar'}</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {conviteErro && <Text style={styles.notifErro}>{conviteErro}</Text>}
+
+            {minhaOrganizacao === null && (
               <Pressable onPress={() => setNovaOrgVisivel(true)} style={styles.orgCriarButton}>
                 <Building2 size={15} color={COLORS.accent} />
                 <Text style={styles.orgCriarButtonText}>Criar organização</Text>
@@ -312,6 +369,46 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontSize: 13.5,
     fontWeight: '500',
+  },
+  conviteButton: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  conviteButtonText: {
+    color: COLORS.accent,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  conviteLinkBox: {
+    marginTop: 10,
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    padding: 10,
+    gap: 8,
+  },
+  conviteLinkText: {
+    color: COLORS.textSecondary,
+    fontSize: 11.5,
+  },
+  conviteCopyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: COLORS.accentSoft,
+    borderRadius: 8,
+    paddingVertical: 8,
+  },
+  conviteCopyButtonText: {
+    color: COLORS.accent,
+    fontSize: 12,
+    fontWeight: '600',
   },
   notifField: {
     marginBottom: 16,

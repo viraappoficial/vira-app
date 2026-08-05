@@ -20,6 +20,7 @@ import HomeScreen from './screens/HomeScreen';
 import KanbanScreen from './screens/KanbanScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import ResetSenhaScreen from './screens/ResetSenhaScreen';
+import AceitarConviteScreen from './screens/AceitarConviteScreen';
 
 function capitalize(text) {
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
@@ -290,12 +291,23 @@ function MainApp({ session }) {
   );
 }
 
+function limparConviteDaUrl() {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+}
+
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = carregando, null = deslogado
   const [recuperandoSenha, setRecuperandoSenha] = useState(false);
+  const [conviteToken, setConviteToken] = useState(null);
 
   useEffect(() => {
     if (Platform.OS === 'web') configurarScrollbarWeb();
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const token = new URLSearchParams(window.location.search).get('convite');
+      if (token) setConviteToken(token);
+    }
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: subscription } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (event === 'PASSWORD_RECOVERY') setRecuperandoSenha(true);
@@ -328,6 +340,25 @@ export default function App() {
     return (
       <GestureHandlerRootView style={styles.flex}>
         <ResetSenhaScreen onDone={() => setRecuperandoSenha(false)} />
+        <StatusBar style="light" />
+      </GestureHandlerRootView>
+    );
+  }
+
+  if (conviteToken) {
+    return (
+      <GestureHandlerRootView style={styles.flex}>
+        <AceitarConviteScreen
+          token={conviteToken}
+          onDone={() => {
+            limparConviteDaUrl();
+            setConviteToken(null);
+          }}
+          onIgnorar={() => {
+            limparConviteDaUrl();
+            setConviteToken(null);
+          }}
+        />
         <StatusBar style="light" />
       </GestureHandlerRootView>
     );
