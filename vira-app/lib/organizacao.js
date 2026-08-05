@@ -1,15 +1,26 @@
 import { supabase } from './supabase';
 
-// Só cobre o caso de "dono" por enquanto (quem criou a organização) — visibilidade
-// via convite/membro entra junto com a tela de Equipe (Fase A, próxima etapa).
+// Primeiro tenta como dono (quem criou a organização); se não for dono, checa
+// se é membro (aceitou um convite) — cobre os dois lados: líder e colaborador.
 export async function buscarMinhaOrganizacao(userId) {
-  const { data, error } = await supabase
+  const { data: comoDono, error: erroDono } = await supabase
     .from('organizacoes')
     .select('id, nome, cor, criado_em')
     .eq('dono_id', userId)
     .maybeSingle();
-  if (error) throw error;
-  return data;
+  if (erroDono) throw erroDono;
+  if (comoDono) return { ...comoDono, papel: 'lider' };
+
+  const { data: comoMembro, error: erroMembro } = await supabase
+    .from('membros_organizacao')
+    .select('papel, organizacoes (id, nome, cor, criado_em)')
+    .eq('usuario_id', userId)
+    .eq('status', 'ativo')
+    .maybeSingle();
+  if (erroMembro) throw erroMembro;
+  if (comoMembro?.organizacoes) return { ...comoMembro.organizacoes, papel: comoMembro.papel };
+
+  return null;
 }
 
 export async function criarOrganizacao({ nome, cor }) {
