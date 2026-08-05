@@ -1,11 +1,13 @@
-import { AlertTriangle, Check, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock, Copy, Plus, X } from 'lucide-react-native';
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock, Copy, Plus, UserMinus, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
+  atualizarMembro,
   atualizarSetor,
   criarConvite,
   criarSetor,
   linkConvite,
+  listarMembros,
   listarSetores,
   listarTarefasDoSetor,
 } from '../lib/organizacao';
@@ -25,7 +27,7 @@ function profundidade(caminho) {
   return caminho.split('.').length - 1;
 }
 
-function SetorRow({ setor, organizacaoId, userId, aberto, onToggle, onSalvo }) {
+function SetorRow({ setor, organizacaoId, userId, todosSetores, aberto, onToggle, onSalvo }) {
   const [nome, setNome] = useState(setor.nome);
   const [cor, setCor] = useState(setor.cor);
   const [salvando, setSalvando] = useState(false);
@@ -34,16 +36,48 @@ function SetorRow({ setor, organizacaoId, userId, aberto, onToggle, onSalvo }) {
   const [linkGerado, setLinkGerado] = useState(null);
   const [gerandoConvite, setGerandoConvite] = useState(false);
   const [linkCopiado, setLinkCopiado] = useState(false);
+  const [membros, setMembros] = useState(null);
+  const [movendoId, setMovendoId] = useState(null);
+  const [movendoPara, setMovendoPara] = useState(null);
+
+  function recarregarMembros() {
+    listarMembros(organizacaoId)
+      .then((todos) => setMembros(todos.filter((m) => m.setor_id === setor.id)))
+      .catch(() => setMembros([]));
+  }
 
   useEffect(() => {
     if (!aberto) return;
     setNome(setor.nome);
     setCor(setor.cor);
     setLinkGerado(null);
+    setMovendoId(null);
     listarTarefasDoSetor(setor.id, organizacaoId)
       .then(setTarefas)
       .catch(() => setTarefas([]));
+    recarregarMembros();
   }, [aberto, setor.id, organizacaoId]);
+
+  async function handleMoverMembro(usuarioId, novoSetorId) {
+    setErro(null);
+    try {
+      await atualizarMembro(organizacaoId, usuarioId, { setorId: novoSetorId });
+      setMovendoId(null);
+      recarregarMembros();
+    } catch (e) {
+      setErro(e.message || 'Não deu pra mover esse membro agora.');
+    }
+  }
+
+  async function handleRemoverMembro(usuarioId) {
+    setErro(null);
+    try {
+      await atualizarMembro(organizacaoId, usuarioId, { status: 'inativo' });
+      recarregarMembros();
+    } catch (e) {
+      setErro(e.message || 'Não deu pra remover esse membro agora.');
+    }
+  }
 
   async function handleSalvar() {
     if (!nome.trim() || salvando) return;
@@ -133,6 +167,55 @@ function SetorRow({ setor, organizacaoId, userId, aberto, onToggle, onSalvo }) {
                 <Text style={styles.copyButtonText}>{linkCopiado ? 'Copiado!' : 'Copiar'}</Text>
               </Pressable>
             </View>
+          )}
+
+          <Text style={styles.tarefasLabel}>Membros desse setor</Text>
+          {membros === null ? (
+            <ActivityIndicator color={COLORS.textSecondary} size="small" />
+          ) : membros.length === 0 ? (
+            <Text style={styles.tarefasVazio}>Ninguém nesse setor ainda.</Text>
+          ) : (
+            membros.map((m) => (
+              <View key={m.usuario_id} style={styles.membroRow}>
+                <View style={styles.membroInfo}>
+                  <Text style={styles.membroNome} numberOfLines={1}>
+                    {m.nome_exibicao || 'Alguém do time'}
+                  </Text>
+                  <Text style={styles.membroPapel}>{m.papel}</Text>
+                </View>
+                {m.usuario_id !== userId && (
+                  <View style={styles.membroAcoes}>
+                    {movendoId === m.usuario_id ? (
+                      <View style={styles.moverRow}>
+                        {(todosSetores || [])
+                          .filter((s) => s.id !== setor.id)
+                          .map((s) => (
+                            <Pressable
+                              key={s.id}
+                              onPress={() => handleMoverMembro(m.usuario_id, s.id)}
+                              style={styles.paiChip}
+                            >
+                              <Text style={styles.paiChipText}>{s.nome}</Text>
+                            </Pressable>
+                          ))}
+                        <Pressable onPress={() => setMovendoId(null)} hitSlop={6}>
+                          <X size={13} color={COLORS.textSecondary} />
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <>
+                        <Pressable onPress={() => setMovendoId(m.usuario_id)} hitSlop={6}>
+                          <Text style={styles.moverButtonText}>Mover</Text>
+                        </Pressable>
+                        <Pressable onPress={() => handleRemoverMembro(m.usuario_id)} hitSlop={6}>
+                          <UserMinus size={14} color={COLORS.atrasado} />
+                        </Pressable>
+                      </>
+                    )}
+                  </View>
+                )}
+              </View>
+            ))
           )}
 
           <Text style={styles.tarefasLabel}>Tarefas nesse setor</Text>
@@ -230,6 +313,7 @@ export default function ModalSetores({ visible, organizacao, userId, onClose }) 
                 setor={setor}
                 organizacaoId={organizacao.id}
                 userId={userId}
+                todosSetores={setores}
                 aberto={abertoId === setor.id}
                 onToggle={() => setAbertoId(abertoId === setor.id ? null : setor.id)}
                 onSalvo={recarregar}
@@ -435,6 +519,46 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: COLORS.textSecondary,
     marginBottom: 6,
+    marginTop: 4,
+  },
+  membroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    paddingVertical: 6,
+  },
+  membroInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  membroNome: {
+    color: COLORS.text,
+    fontSize: 12.5,
+    flexShrink: 1,
+  },
+  membroPapel: {
+    color: COLORS.textSecondary,
+    fontSize: 10,
+    textTransform: 'capitalize',
+  },
+  membroAcoes: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  moverButtonText: {
+    color: COLORS.accent,
+    fontSize: 11.5,
+    fontWeight: '500',
+  },
+  moverRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
   },
   tarefasVazio: {
     color: COLORS.textSecondary,
