@@ -168,12 +168,16 @@ export default function ModalEspacos({
                 </View>
                 <View style={styles.notifTextBox}>
                   <Text style={styles.notifLabel}>{minhaOrganizacao.nome}</Text>
-                  <Text style={styles.notifSubtext}>Você lidera essa organização.</Text>
+                  <Text style={styles.notifSubtext}>
+                    {minhaOrganizacao.papel === 'lider'
+                      ? 'Você lidera essa organização.'
+                      : 'Você faz parte dessa organização.'}
+                  </Text>
                 </View>
               </View>
             ) : null}
 
-            {minhaOrganizacao && !linkGerado && (
+            {minhaOrganizacao?.papel === 'lider' && !linkGerado && (
               <Pressable onPress={handleGerarConvite} disabled={gerandoConvite} style={styles.conviteButton}>
                 <Text style={styles.conviteButtonText}>
                   {gerandoConvite ? 'Gerando link...' : 'Convidar pra organização'}
