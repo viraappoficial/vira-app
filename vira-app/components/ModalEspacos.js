@@ -1,10 +1,11 @@
-import { Bell, BellOff, Building2, Copy, Home as HomeIcon, Plus, ShieldAlert, X } from 'lucide-react-native';
+import { Bell, BellOff, Building2, Home as HomeIcon, Plus, ShieldAlert, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { buscarMinhaOrganizacao, buscarSetorPrincipal, criarConvite, linkConvite } from '../lib/organizacao';
+import { buscarMinhaOrganizacao } from '../lib/organizacao';
 import { ativarNotificacoes, desativarNotificacoes, notificacoesAtivas, pushSuportado, statusPermissao } from '../lib/push';
 import { COLORS } from '../lib/theme';
 import ModalNovaOrganizacao from './ModalNovaOrganizacao';
+import ModalSetores from './ModalSetores';
 import LegalScreen from '../screens/LegalScreen';
 
 export default function ModalEspacos({
@@ -28,10 +29,7 @@ export default function ModalEspacos({
   const [excluirErro, setExcluirErro] = useState(null);
   const [minhaOrganizacao, setMinhaOrganizacao] = useState(undefined); // undefined = carregando
   const [novaOrgVisivel, setNovaOrgVisivel] = useState(false);
-  const [gerandoConvite, setGerandoConvite] = useState(false);
-  const [linkGerado, setLinkGerado] = useState(null);
-  const [conviteErro, setConviteErro] = useState(null);
-  const [linkCopiado, setLinkCopiado] = useState(false);
+  const [setoresVisivel, setSetoresVisivel] = useState(false);
 
   useEffect(() => {
     if (!visible || !pushSuportado()) return;
@@ -67,35 +65,6 @@ export default function ModalEspacos({
       setNotifErro(err.message);
     } finally {
       setNotifCarregando(false);
-    }
-  }
-
-  async function handleGerarConvite() {
-    if (!minhaOrganizacao || gerandoConvite) return;
-    setGerandoConvite(true);
-    setConviteErro(null);
-    try {
-      const setor = await buscarSetorPrincipal(minhaOrganizacao.id);
-      if (!setor) throw new Error('Não achei o setor pra convidar. Tenta de novo em instantes.');
-      const convite = await criarConvite({ organizacaoId: minhaOrganizacao.id, setorId: setor.id, criadoPor: userId });
-      setLinkGerado(linkConvite(convite.token));
-      setLinkCopiado(false);
-    } catch (err) {
-      setConviteErro(err.message || 'Não deu pra gerar o convite agora.');
-    } finally {
-      setGerandoConvite(false);
-    }
-  }
-
-  async function handleCopiarLink() {
-    if (!linkGerado) return;
-    try {
-      await navigator.clipboard.writeText(linkGerado);
-      setLinkCopiado(true);
-      setTimeout(() => setLinkCopiado(false), 2000);
-    } catch {
-      // Alguns navegadores bloqueiam clipboard fora de gesto direto do usuário —
-      // o link continua visível na tela pra copiar manualmente.
     }
   }
 
@@ -177,27 +146,11 @@ export default function ModalEspacos({
               </View>
             ) : null}
 
-            {minhaOrganizacao?.papel === 'lider' && !linkGerado && (
-              <Pressable onPress={handleGerarConvite} disabled={gerandoConvite} style={styles.conviteButton}>
-                <Text style={styles.conviteButtonText}>
-                  {gerandoConvite ? 'Gerando link...' : 'Convidar pra organização'}
-                </Text>
+            {minhaOrganizacao?.papel === 'lider' && (
+              <Pressable onPress={() => setSetoresVisivel(true)} style={styles.conviteButton}>
+                <Text style={styles.conviteButtonText}>Gerenciar setores</Text>
               </Pressable>
             )}
-
-            {linkGerado && (
-              <View style={styles.conviteLinkBox}>
-                <Text style={styles.conviteLinkText} numberOfLines={1}>
-                  {linkGerado}
-                </Text>
-                <Pressable onPress={handleCopiarLink} style={styles.conviteCopyButton} hitSlop={6}>
-                  <Copy size={13} color={COLORS.accent} />
-                  <Text style={styles.conviteCopyButtonText}>{linkCopiado ? 'Copiado!' : 'Copiar'}</Text>
-                </Pressable>
-              </View>
-            )}
-
-            {conviteErro && <Text style={styles.notifErro}>{conviteErro}</Text>}
 
             {minhaOrganizacao === null && (
               <Pressable onPress={() => setNovaOrgVisivel(true)} style={styles.orgCriarButton}>
@@ -276,7 +229,13 @@ export default function ModalEspacos({
       <ModalNovaOrganizacao
         visible={novaOrgVisivel}
         onClose={() => setNovaOrgVisivel(false)}
-        onCriada={(resultado) => setMinhaOrganizacao(resultado.organizacao)}
+        onCriada={(resultado) => setMinhaOrganizacao({ ...resultado.organizacao, papel: 'lider' })}
+      />
+      <ModalSetores
+        visible={setoresVisivel}
+        organizacao={minhaOrganizacao}
+        userId={userId}
+        onClose={() => setSetoresVisivel(false)}
       />
     </View>
   );

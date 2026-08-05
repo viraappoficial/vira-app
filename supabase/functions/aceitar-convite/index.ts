@@ -16,6 +16,13 @@ function erro(msg: string, status: number) {
   });
 }
 
+function nomeDeExibicao(user: { user_metadata?: { nome?: string }; email?: string }) {
+  const nome = user.user_metadata?.nome?.trim();
+  if (nome) return nome;
+  const local = (user.email || '').split('@')[0] || 'Usuário';
+  return local.charAt(0).toUpperCase() + local.slice(1);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
 
@@ -57,6 +64,7 @@ Deno.serve(async (req) => {
       setor_id: convite.setor_id,
       papel: convite.papel,
       status: 'ativo',
+      nome_exibicao: nomeDeExibicao(userData.user),
     },
     { onConflict: 'organizacao_id,usuario_id' }
   );
